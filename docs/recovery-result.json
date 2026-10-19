@@ -1,0 +1,68 @@
+{
+  "time_utc": "2026-10-19T18:31:04.582901+00:00",
+  "mode": "recovered",
+  "leader": "db3",
+  "members": {
+    "db1": {
+      "role": "replica",
+      "state": "running",
+      "timeline": 2,
+      "server_version": 160015
+    },
+    "db2": {
+      "role": "replica",
+      "state": "running",
+      "timeline": 2,
+      "server_version": 160015
+    },
+    "db3": {
+      "role": "primary",
+      "state": "running",
+      "timeline": 2,
+      "server_version": 160015
+    }
+  },
+  "sql_and_http": true,
+  "committed_record_preserved": true,
+  "new_write_succeeded": true,
+  "probe_elapsed_seconds": 23.43,
+  "failed_probes": [
+    {
+      "elapsed": 2.05,
+      "error": "AssertionError"
+    },
+    {
+      "elapsed": 6.07,
+      "error": "AssertionError"
+    },
+    {
+      "elapsed": 10.08,
+      "error": "AssertionError"
+    },
+    {
+      "elapsed": 14.08,
+      "error": "AssertionError"
+    },
+    {
+      "elapsed": 17.14,
+      "error": "AssertionError"
+    },
+    {
+      "elapsed": 19.15,
+      "error": "AssertionError"
+    },
+    {
+      "elapsed": 21.16,
+      "error": "AssertionError"
+    }
+  ],
+  "migration": {
+    "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+    "historical_dump_available": false,
+    "method": "pg_dump -Fc / pg_restore",
+    "articles": 4,
+    "full_article_rows_equal": true,
+    "inactive_user_preserved": true,
+    "dump_sha256": "0cc5e913277e50f960e716eb4a87bad5f6dc8cb79e595d5bd0800fe05fd2faf4"
+  }
+}
