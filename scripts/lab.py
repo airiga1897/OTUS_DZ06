@@ -15,6 +15,7 @@ import sys
 import tarfile
 import time
 import urllib.error
+import uuid
 
 import paramiko
 import yaml
@@ -181,6 +182,22 @@ def lab_output():
     return json.loads(tf('output', '-json', 'lab', capture=True))
 
 
+def managed_ids():
+    path = ROOT / 'terraform-selectel/terraform.tfstate'
+    state = json.loads(path.read_text()) if path.exists() else {}
+    result = {}
+    for resource in state.get('resources', []):
+        if resource.get('mode') != 'managed':
+            continue
+        for instance in resource.get('instances', []):
+            attributes = instance.get('attributes', {})
+            name = attributes.get('name')
+            if name and not name.startswith(PREFIX):
+                raise ValueError('Foreign resource in DZ06 state')
+            result[(resource['type'], resource['name'], str(instance.get('index_key', '')))] = attributes['id']
+    return result
+
+
 def cleanup():
     state_path = ROOT / 'terraform-selectel/terraform.tfstate'
     before = json.loads(state_path.read_text()) if state_path.exists() else {}
@@ -196,15 +213,20 @@ def cleanup():
     cloud = Cloud()
     checks = {'compute': ['/servers/detail', '/os-server-groups'], 'volumev3': ['/volumes/detail'],
               'network': ['/v2.0/networks', '/v2.0/subnets', '/v2.0/routers', '/v2.0/ports', '/v2.0/security-groups']}
-    remaining = []
-    for service, paths in checks.items():
-        for path in paths:
-            data = cloud.get(service, path)
-            for items in data.values():
-                if isinstance(items, list):
-                    remaining += [x.get('name') for x in items if isinstance(x, dict) and x.get('name', '').startswith(PREFIX)]
-    floating = cloud.get('network', '/v2.0/floatingips')['floatingips']
-    remaining_fips = sum(f['id'] in own_fips for f in floating)
+    deadline = time.monotonic() + 90
+    while True:
+        remaining = []
+        for service, paths in checks.items():
+            for path in paths:
+                data = cloud.get(service, path)
+                for items in data.values():
+                    if isinstance(items, list):
+                        remaining += [x.get('name') for x in items if isinstance(x, dict) and x.get('name', '').startswith(PREFIX)]
+        floating = cloud.get('network', '/v2.0/floatingips')['floatingips']
+        remaining_fips = sum(f['id'] in own_fips for f in floating)
+        if not remaining and not remaining_fips or time.monotonic() >= deadline:
+            break
+        time.sleep(3)
     save(ROOT / 'docs/cleanup-result.json', {'time_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
          'managed_remaining': len(managed), 'named_remaining': remaining,
          'own_floating_ips_remaining': remaining_fips, 'success': not remaining and not remaining_fips})
@@ -215,23 +237,30 @@ def cleanup():
 
 def trust(lab):
     cloud = Cloud()
+    cache_path = LOCAL / 'trusted-hosts.json'
+    cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
     lines = []
     for name, server_id in lab['server_ids'].items():
         server = cloud.get('compute', '/servers/' + server_id)['server']
         if server['name'] != PREFIX + '-' + name:
             raise ValueError('Foreign instance UUID')
-        for attempt in range(60):
-            console = cloud.get('compute', '/servers/' + server_id + '/action', {'os-getConsoleOutput': {'length': 1000}})['output']
-            section = re.search(r'BEGIN SSH HOST KEY KEYS.*?END SSH HOST KEY KEYS', console, re.S)
-            match = re.search(r'ssh-ed25519\s+([A-Za-z0-9+/=]+)', section.group()) if section else None
-            if match:
-                break
-            time.sleep(3)
-        else:
-            raise RuntimeError('No trusted SSH key for ' + name)
-        paramiko.Ed25519Key(data=base64.b64decode(match[1]))
+        key = cache.get(server_id)
+        if key is None:
+            for attempt in range(60):
+                console = cloud.get('compute', '/servers/' + server_id + '/action', {'os-getConsoleOutput': {'length': 1000}})['output']
+                section = re.search(r'BEGIN SSH HOST KEY KEYS.*?END SSH HOST KEY KEYS', console, re.S)
+                match = re.search(r'ssh-ed25519\s+([A-Za-z0-9+/=]+)', section.group()) if section else None
+                if match:
+                    key = match[1]
+                    break
+                time.sleep(3)
+            else:
+                raise RuntimeError('No trusted SSH key for ' + name)
+        paramiko.Ed25519Key(data=base64.b64decode(key))
+        cache[server_id] = key
+        save(cache_path, cache)
         hosts = [lab['private_ips'][name]] + (['[' + lab['app_public_ip'] + ']:443'] if name == 'app' else [])
-        lines.append(','.join(hosts) + ' ssh-ed25519 ' + match[1] + '\n')
+        lines.append(','.join(hosts) + ' ssh-ed25519 ' + key + '\n')
     (LOCAL / 'known_hosts').write_text(''.join(lines), encoding='utf-8')
 
 
@@ -296,8 +325,12 @@ def upload_tree(client):
 def configure():
     from render import node_config
     lab = lab_output()
-    discover_route(lab)
     trust(lab)
+    try:
+        with connect(lab):
+            pass
+    except (OSError, paramiko.SSHException):
+        discover_route(lab)
     passwords = json.loads((LOCAL / 'secrets.json').read_text())
     with connect(lab) as app:
         remote(app, 'sudo python3 -', 'cloud-init-app', stdin=(ROOT / 'scripts/remote/check_cloud_init.py').read_text())
@@ -357,19 +390,20 @@ def discover_route(lab):
 
 def verify(failover=False):
     lab = lab_output()
+    run_id = uuid.uuid4().hex
     with connect(lab) as app:
-        raw = remote(app, 'sudo python3 /home/otus/dz06/scripts/remote/verify.py baseline', 'verify-baseline')
+        command = 'sudo python3 /home/otus/dz06/scripts/remote/verify.py '
+        raw = remote(app, command + 'baseline ' + run_id, 'verify-baseline')
         baseline = json.loads(raw)
         save(ROOT / 'docs/verification.json', baseline)
         if not failover:
-            return
+            return {'baseline': baseline}
         leader = baseline['leader']
         server_id = lab['server_ids'][leader]
         cloud = Cloud()
         server = cloud.get('compute', '/servers/' + server_id)['server']
         if server['name'] != PREFIX + '-' + leader:
             raise ValueError('Refusing foreign instance shutdown')
-        start = time.monotonic()
         try:
             cloud.get('compute', '/servers/' + server_id + '/action', {'os-stop': None})
             for _ in range(60):
@@ -378,15 +412,62 @@ def verify(failover=False):
                 time.sleep(2)
             else:
                 raise RuntimeError('Leader shutdown unconfirmed')
-            raw = remote(app, 'sudo python3 /home/otus/dz06/scripts/remote/verify.py failover ' + leader, 'verify-failover')
+            raw = remote(app, command + 'failover ' + run_id + ' ' + leader, 'verify-failover')
             result = json.loads(raw)
-            result['elapsed_from_stop_request_seconds'] = round(time.monotonic() - start, 2)
+            result['stopped_node'] = leader
+            result['nova_shutdown_confirmed'] = True
             save(ROOT / 'docs/failover-result.json', result)
         finally:
             cloud.get('compute', '/servers/' + server_id + '/action', {'os-start': None})
-        raw = remote(app, 'sudo python3 /home/otus/dz06/scripts/remote/verify.py recovered', 'verify-recovered')
-        save(ROOT / 'docs/recovery-result.json', json.loads(raw))
+        raw = remote(app, command + 'recovered ' + run_id, 'verify-recovered')
+        recovery = json.loads(raw)
+        save(ROOT / 'docs/recovery-result.json', recovery)
     print('Failover, committed data, HTTP and recovered replica verified', flush=True)
+    return {'run_id': run_id, 'baseline': baseline, 'failover': result, 'recovery': recovery}
+
+
+def deploy():
+    existing = managed_ids()
+    try:
+        preflight()
+        plan = checked_plan()
+        tf('apply', '-input=false', '-no-color', str(plan))
+        configure()
+    except BaseException:
+        diagnostics()
+        if not existing:
+            cleanup()
+        else:
+            print('Existing DZ06 resources preserved after deployment error', flush=True)
+        raise
+
+
+def regression():
+    try:
+        deploy()
+        before = managed_ids()
+        first = verify(True)
+        deploy()
+        after = managed_ids()
+        if before != after:
+            raise RuntimeError('Redeployment replaced DZ06 resource identities')
+        # Re-run the first run's recovery check after configuration, including its exact rows.
+        with connect(lab_output()) as app:
+            raw = remote(app, 'sudo python3 /home/otus/dz06/scripts/remote/verify.py recovered ' + first['run_id'], 'verify-redeployment-data')
+            data_check = json.loads(raw)
+        second = verify(True)
+        records = [r[stage]['new_record'] for r in [first, second] for stage in ['baseline', 'failover', 'recovery']]
+        records.append(data_check['new_record'])
+        if first['run_id'] == second['run_id'] or any(len({r[key] for r in records}) != 7 for key in ['id', 'slug', 'body']):
+            raise RuntimeError('Failover runs reused verification records')
+        save(ROOT / 'docs/redeployment-result.json', {
+            'success': True, 'resource_ids_preserved': True, 'original_records_preserved': True,
+            'repeat_configuration_completed': True, 'existing_portal_without_route_probe': True,
+            'data_check': data_check})
+        save(ROOT / 'docs/failover-runs.json', {'success': True, 'distinct_failover_records': 6,
+             'redeployment_record_is_distinct': True, 'runs': [first, second]})
+    finally:
+        cleanup()
 
 
 def diagnostics():
@@ -415,21 +496,10 @@ def main():
         prepare()
     elif args.action == 'preflight':
         preflight()
-    elif args.action in ['deploy', 'test']:
-        try:
-            preflight()
-            plan = checked_plan()
-            tf('apply', '-input=false', '-no-color', str(plan))
-            configure()
-            if args.action == 'test':
-                verify(True)
-        except Exception:
-            diagnostics()
-            raise
-        finally:
-            # deploy remains alive only on success; tests and failed deploy always clean up.
-            if args.action == 'test' or sys.exc_info()[0] is not None:
-                cleanup()
+    elif args.action == 'deploy':
+        deploy()
+    elif args.action == 'test':
+        regression()
     elif args.action == 'configure':
         configure()
     elif args.action in ['verify', 'failover']:

@@ -29,10 +29,12 @@ def main():
     if not Path('/opt/patroni/bin/patroni').exists():
         run('python3', '-m', 'venv', '/opt/patroni')
         run('/opt/patroni/bin/pip', 'install', 'patroni[etcd3]==4.1.3', 'psycopg2-binary==2.9.11')
-    run('systemctl', 'stop', 'etcd')
+    fresh_node = not Path('/var/lib/postgresql/patroni/PG_VERSION').exists()
+    if fresh_node:
+        run('systemctl', 'stop', 'etcd')
     name, ip = config['name'], config['ip']
     cluster = ','.join(n + '=http://' + addr + ':2380' for n, addr in config['nodes'].items())
-    write('/etc/default/etcd', f'''ETCD_NAME="{name}"
+    etcd_config = f'''ETCD_NAME="{name}"
 ETCD_DATA_DIR="/var/lib/etcd/otus-dz06"
 ETCD_LISTEN_PEER_URLS="http://{ip}:2380"
 ETCD_LISTEN_CLIENT_URLS="http://{ip}:2379,http://127.0.0.1:2379"
@@ -41,7 +43,11 @@ ETCD_ADVERTISE_CLIENT_URLS="http://{ip}:2379"
 ETCD_INITIAL_CLUSTER="{cluster}"
 ETCD_INITIAL_CLUSTER_TOKEN="otus-dz06"
 ETCD_INITIAL_CLUSTER_STATE="new"
-''')
+'''
+    current = Path('/etc/default/etcd')
+    if not fresh_node and current.read_text() != etcd_config:
+        raise RuntimeError('Changing an existing etcd topology requires a separate migration')
+    write('/etc/default/etcd', etcd_config)
     import yaml
     write('/etc/patroni.yml', yaml.safe_dump(config['patroni'], sort_keys=False), 0o600)
     run('chown', 'postgres:postgres', '/etc/patroni.yml')
