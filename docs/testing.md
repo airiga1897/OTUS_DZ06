@@ -1,5 +1,21 @@
 # Проверки ДЗ06
 
+Команды выполняются локально в PowerShell из корня репозитория после подготовки
+окружения по [README](../README.md). Для облачных проверок требуется работающий
+стенд и загруженная авторизация Selectel.
+
+| Команда | Проверяемое поведение | Подтверждённый результат |
+| --- | --- | --- |
+| `scripts/lab.py verify` | Согласованные роли, запись через HAProxy, чтение через портал | [Первичная проверка](verification.json) |
+| `scripts/lab.py failover` | Смена лидера после выключения ВМ, запись и восстановление узла | [Два фейловера](failover-runs.json), [восстановление](recovery-result.json) |
+| Повторный `scripts/lab.py deploy` | Сохранение UUID ресурсов и существующих записей | [Повторное развёртывание](redeployment-result.json) |
+| `scripts/lab.py cleanup` | Удаление ресурсов ДЗ06 и отсутствие остатков | [Облачный аудит](cleanup-result.json) |
+
+Команды запускаются через `.\.tools\venv\Scripts\python.exe`, как в README.
+Успех обозначается завершением без ошибки и соответствующими JSON-отчётами.
+Проверки записывают новые строки в БД. `failover` временно выключает одну ВМ БД;
+`cleanup` удаляет весь стенд и его данные.
+
 Команда `scripts/lab.py test` выполняет полный цикл:
 
 1. Развёртывание Terraform и настройку серверов.
@@ -18,10 +34,10 @@
 
 Результаты:
 
-- `redeployment-result.json` — сохранение ресурсов и данных после повторной настройки.
-- `failover-runs.json` — оба фейловера, роли узлов и отдельные проверочные записи.
-- `verification.json`, `failover-result.json`, `recovery-result.json` — последнее испытание.
-- `cleanup-result.json` — отсутствие ресурсов ДЗ06 после удаления.
+- [redeployment-result.json](redeployment-result.json) — сохранение ресурсов и данных после повторной настройки.
+- [failover-runs.json](failover-runs.json) — оба фейловера, роли узлов и отдельные проверочные записи.
+- [verification.json](verification.json), [failover-result.json](failover-result.json), [recovery-result.json](recovery-result.json) — последнее испытание.
+- [cleanup-result.json](cleanup-result.json) — отсутствие ресурсов ДЗ06 после удаления.
 
 Локальные проверки защиты от ошибочного удаления:
 
