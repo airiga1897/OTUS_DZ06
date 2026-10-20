@@ -42,8 +42,8 @@ resource "openstack_networking_secgroup_rule_v2" "ssh" {
   direction         = "ingress"
   ethertype         = "IPv4"
   protocol          = "tcp"
-  port_range_min    = 443
-  port_range_max    = 443
+  port_range_min    = 22
+  port_range_max    = 22
   remote_ip_prefix  = each.value
   security_group_id = openstack_networking_secgroup_v2.lab.id
 }
@@ -103,7 +103,7 @@ resource "openstack_compute_instance_v2" "node" {
     write_files = each.value.role == "app" ? [{
       path        = "/etc/ssh/sshd_config.d/10-otus-admin-port.conf"
       permissions = "0644"
-      content     = "Port 22\nPort 443\n"
+      content     = "Port 22\n"
       }, {
       path        = "/root/otus-dz06-route.py"
       permissions = "0600"

@@ -96,6 +96,7 @@ class TrustTests(unittest.TestCase):
                 lab.trust({'server_ids': {'app': 'same-uuid'}, 'private_ips': {'app': '10.66.0.10'}, 'app_public_ip': '192.0.2.1'})
                 cloud.return_value.get.assert_called_once_with('compute', '/servers/same-uuid')
                 self.assertIn(key, (local / 'known_hosts').read_text())
+                self.assertIn('10.66.0.10,192.0.2.1 ssh-ed25519 ', (local / 'known_hosts').read_text())
 
     def test_new_uuid_requires_new_api_verification(self):
         lab.LOCAL.mkdir(exist_ok=True)

@@ -275,7 +275,7 @@ def trust(lab):
         paramiko.Ed25519Key(data=base64.b64decode(key))
         cache[server_id] = key
         save(cache_path, cache)
-        hosts = [lab['private_ips'][name]] + (['[' + lab['app_public_ip'] + ']:443'] if name == 'app' else [])
+        hosts = [lab['private_ips'][name]] + ([lab['app_public_ip']] if name == 'app' else [])
         lines.append(','.join(hosts) + ' ssh-ed25519 ' + key + '\n')
     (LOCAL / 'known_hosts').write_text(''.join(lines), encoding='utf-8')
 
@@ -286,7 +286,7 @@ def connect(lab, name='app', front=None):
     client.load_host_keys(str(LOCAL / 'known_hosts'))
     client.set_missing_host_key_policy(paramiko.RejectPolicy())
     sock = front.get_transport().open_channel('direct-tcpip', (host, 22), ('127.0.0.1', 0)) if front else None
-    client.connect(host, port=443 if name == 'app' else 22, username='otus', key_filename=str(LOCAL / 'otus_dz06'), sock=sock,
+    client.connect(host, port=22, username='otus', key_filename=str(LOCAL / 'otus_dz06'), sock=sock,
                    look_for_keys=False, allow_agent=False, timeout=20, banner_timeout=30)
     return client
 
