@@ -490,7 +490,7 @@ def diagnostics():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'preflight', 'deploy', 'configure', 'verify', 'failover', 'cleanup', 'test'])
+    parser.add_argument('action', choices=['prepare', 'preflight', 'deploy', 'configure', 'verify', 'failover', 'destroy', 'cleanup', 'test'])
     args = parser.parse_args()
     if args.action == 'prepare':
         prepare()
@@ -503,7 +503,7 @@ def main():
     elif args.action == 'configure':
         configure()
     elif args.action in ['verify', 'failover']:
-        verify(args.action == 'failover')
+        verify(True)
     else:
         cleanup()
 

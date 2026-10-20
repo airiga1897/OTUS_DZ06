@@ -12,6 +12,18 @@ import lab
 
 
 class LifecycleTests(unittest.TestCase):
+    def test_verify_includes_failure_and_recovery(self):
+        with patch('sys.argv', ['lab.py', 'verify']), patch.object(lab, 'verify') as verify:
+            lab.main()
+            verify.assert_called_once_with(True)
+
+    def test_destroy_and_cleanup_use_same_owned_resource_cleanup(self):
+        for action in ['destroy', 'cleanup']:
+            with self.subTest(action=action), patch('sys.argv', ['lab.py', action]), \
+                 patch.object(lab, 'cleanup') as cleanup:
+                lab.main()
+                cleanup.assert_called_once_with()
+
     def check_deploy_failure(self, existing):
         with patch.object(lab, 'managed_ids', return_value=existing), \
              patch.object(lab, 'preflight'), patch.object(lab, 'checked_plan'), \
