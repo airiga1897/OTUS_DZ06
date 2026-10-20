@@ -1,17 +1,16 @@
 {
-  "time_utc": "2026-10-19T19:05:32.315007+00:00",
   "compute": {
     "instances": {
       "limit": 1000,
-      "in_use": 8
+      "in_use": 0
     },
     "cores": {
       "limit": 600,
-      "in_use": 14
+      "in_use": 0
     },
     "ram": {
       "limit": 5120000,
-      "in_use": 28672
+      "in_use": 0
     },
     "local_gb": {
       "limit": 500,
@@ -32,18 +31,18 @@
   },
   "ssd": {
     "limit": 600,
-    "in_use": 160,
+    "in_use": 0,
     "reserved": 0
   },
   "network": {
     "network": {
       "limit": 100,
-      "used": 2,
+      "used": 0,
       "reserved": 0
     },
     "subnet": {
       "limit": 100,
-      "used": 2,
+      "used": 0,
       "reserved": 0
     },
     "subnetpool": {
@@ -53,17 +52,17 @@
     },
     "port": {
       "limit": 1000,
-      "used": 14,
+      "used": 0,
       "reserved": 0
     },
     "router": {
       "limit": 20,
-      "used": 2,
+      "used": 0,
       "reserved": 0
     },
     "floatingip": {
       "limit": 12,
-      "used": 2,
+      "used": 0,
       "reserved": 0
     },
     "rbac_policy": {
@@ -73,12 +72,12 @@
     },
     "security_group": {
       "limit": 20,
-      "used": 3,
+      "used": 1,
       "reserved": 0
     },
     "security_group_rule": {
       "limit": 200,
-      "used": 20,
+      "used": 6,
       "reserved": 0
     },
     "firewall_rule": {

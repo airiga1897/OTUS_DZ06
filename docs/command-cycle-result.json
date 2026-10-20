@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "action": "deploy",
+      "exit_code": 1
+    },
+    {
+      "action": "destroy",
+      "exit_code": 0
+    }
+  ],
+  "success": false,
+  "verification_executed": false,
+  "blocking_condition": "Selectel could not place all three database VMs with hard anti-affinity; a compute API fault reported no valid host despite sufficient quotas.",
+  "cleanup_verified": true
+}
