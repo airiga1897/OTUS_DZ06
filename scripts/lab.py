@@ -22,11 +22,11 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from selectel_api import authenticate, request_json
+from credentials import load_credentials, to_environment, credential_values
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / '.local'
 PREFIX = 'otus-dz06'
-PROJECT = '<SELECTEL_PROJECT_ID>'
 TF = ROOT.parent / 'OTUS_DZ04/.tools/terraform.exe'
 RUN = LOCAL / 'runs' / datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 _AUTH_CONFIG = None
@@ -34,23 +34,43 @@ _AUTH_CONFIG = None
 
 def save(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
+    text = json.dumps(value, ensure_ascii=False, indent=2)
+    if path.is_relative_to(ROOT / 'docs'):
+        text = redact(text)
+    path.write_text(text, encoding='utf-8')
+
+
+def redact(text):
+    values = credential_values(_AUTH_CONFIG)
+    secrets_path = LOCAL / 'secrets.json'
+    if secrets_path.exists():
+        values += list(json.loads(secrets_path.read_text()).values())
+    for value in sorted({v for v in values if isinstance(v, str) and v}, key=len, reverse=True):
+        text = text.replace(value, '<redacted>')
+    return text
+
+
+def bind_context(config):
+    path = LOCAL / 'context.json'
+    expected = {k: config[k] for k in ['project_id', 'region']}
+    state_path = ROOT / 'terraform-selectel/terraform.tfstate'
+    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    resources = [r for r in state.get('resources', []) if r.get('mode') == 'managed' and r.get('instances')]
+    projects = {i.get('attributes', {}).get('tenant_id') for r in resources for i in r['instances']}
+    projects.discard(None)
+    if projects and projects != {config['project_id']}:
+        raise ValueError('Credentials do not match the existing stand project')
+    if path.exists() and resources and json.loads(path.read_text()) != expected:
+        raise ValueError('Credentials do not match the existing stand context')
+    save(path, expected)
 
 
 def auth_config():
     global _AUTH_CONFIG
     if _AUTH_CONFIG is not None:
         return _AUTH_CONFIG
-    path = os.environ.get('OTUS_SELECTEL_AUTH')
-    if path:
-        config = json.loads(Path(path).read_text(encoding='utf-8-sig'))
-    elif os.environ.get('OS_PASSWORD'):
-        from selectel_api import config_from_env
-        config = config_from_env()
-    else:
-        raise RuntimeError('Set OTUS_SELECTEL_AUTH to local operator JSON or load OS_* environment')
-    if config['project_id'] != PROJECT or config['region'] != 'ru-7':
-        raise ValueError('Unexpected project/region')
+    config = load_credentials()
+    bind_context(config)
     _AUTH_CONFIG = config
     return config
 
@@ -79,19 +99,17 @@ class Cloud:
 def tf(*args, capture=False):
     config = auth_config()
     env = dict(os.environ)
-    for key, field in {'OS_AUTH_URL': 'auth_url', 'OS_PROJECT_ID': 'project_id',
-                       'OS_REGION_NAME': 'region', 'OS_USER_DOMAIN_NAME': 'domain_name',
-                       'OS_USERNAME': 'username', 'OS_PASSWORD': 'password'}.items():
-        env[key] = config[field]
+    env.update(to_environment(config))
     env['TF_CLI_CONFIG_FILE'] = str(ROOT / 'terraform-selectel.rc')
     env['TF_IN_AUTOMATION'] = '1'
     binary = os.environ.get('OTUS_TERRAFORM', str(TF))
     result = subprocess.run([binary, '-chdir=' + str(ROOT / 'terraform-selectel'), *args],
                             env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     RUN.mkdir(parents=True, exist_ok=True)
-    (RUN / ('terraform-' + args[0] + '-' + str(time.time_ns()) + '.log')).write_bytes(result.stdout + result.stderr)
+    output = redact((result.stdout + result.stderr).decode(errors='replace'))
+    (RUN / ('terraform-' + args[0] + '-' + str(time.time_ns()) + '.log')).write_text(output, encoding='utf-8')
     if result.returncode:
-        print((result.stdout + result.stderr).decode(errors='replace')[-5000:], flush=True)
+        print(output[-5000:], flush=True)
         raise RuntimeError('Terraform ' + args[0] + ' failed; see local run log')
     if capture:
         return result.stdout.decode()
@@ -100,9 +118,10 @@ def tf(*args, capture=False):
 
 def preflight():
     cloud = Cloud()
-    compute = cloud.get('compute', '/os-quota-sets/' + PROJECT + '/detail')['quota_set']['az_quotas']['ru-7a']
-    volumes = cloud.get('volumev3', '/os-quota-sets/' + PROJECT + '?usage=True')['quota_set']
-    network = cloud.get('network', '/v2.0/quotas/' + PROJECT + '/details.json')['quota']
+    project = cloud.config['project_id']
+    compute = cloud.get('compute', '/os-quota-sets/' + project + '/detail')['quota_set']['az_quotas']['ru-7a']
+    volumes = cloud.get('volumev3', '/os-quota-sets/' + project + '?usage=True')['quota_set']
+    network = cloud.get('network', '/v2.0/quotas/' + project + '/details.json')['quota']
     demands = [(compute['cores'], 7), (compute['ram'], 14336), (compute['instances'], 4),
                (volumes['gigabytes_basicssd.ru-7a'], 80), (network['floatingip'], 1),
                (network['network'], 1), (network['subnet'], 1), (network['router'], 1),
@@ -215,10 +234,10 @@ def cleanup():
     scope_path = LOCAL / 'cleanup-fips.json'
     region = auth_config()['region']
     if own_fips:
-        save(scope_path, {'region': region, 'ids': sorted(own_fips)})
+        save(scope_path, {'region': region, 'project_id': auth_config()['project_id'], 'ids': sorted(own_fips)})
     elif scope_path.exists():
         scope = json.loads(scope_path.read_text())
-        if scope['region'] == region:
+        if scope['region'] == region and scope.get('project_id') == auth_config()['project_id']:
             own_fips = set(scope['ids'])
     plan = checked_plan(True)
     tf('apply', '-input=false', '-no-color', str(plan))
@@ -248,6 +267,7 @@ def cleanup():
          'own_floating_ips_remaining': remaining_fips, 'success': not remaining and not remaining_fips})
     if remaining or remaining_fips:
         raise RuntimeError('Named DZ06 resources remain outside state')
+    (LOCAL / 'operator.json').unlink(missing_ok=True)
     print('DZ06 cleanup verified; other labs untouched', flush=True)
 
 
@@ -312,9 +332,9 @@ def remote(client, command, label='remote', stdin=None):
     text = out.decode(errors='replace')
     RUN.mkdir(parents=True, exist_ok=True)
     with (RUN / (label + '.log')).open('a', encoding='utf-8') as log:
-        log.write(text)
+        log.write(redact(text))
     if channel.recv_exit_status():
-        print(text[-3000:], flush=True)
+        print(redact(text[-3000:]), flush=True)
         raise RuntimeError('Remote command failed: ' + label)
     print(label + ': OK', flush=True)
     return text

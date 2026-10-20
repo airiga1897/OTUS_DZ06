@@ -1,6 +1,7 @@
 """Regression checks for resource ownership on deployment errors; no cloud calls."""
 import unittest
 import json
+import os
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
@@ -12,6 +13,65 @@ import lab
 
 
 class LifecycleTests(unittest.TestCase):
+    def setUp(self):
+        lab.LOCAL.mkdir(parents=True, exist_ok=True)
+
+    def test_environment_auth_needs_no_credential_file(self):
+        config = {'auth_url': 'https://cloud.api.selcloud.ru/identity/v3', 'region': 'ru-7',
+                  'project_id': 'test-project', 'domain_name': 'test-account',
+                  'username': 'test-operator', 'password': 'test-password'}
+        names = {'auth_url': 'OS_AUTH_URL', 'region': 'OS_REGION_NAME', 'project_id': 'OS_PROJECT_ID',
+                 'domain_name': 'OS_USER_DOMAIN_NAME', 'username': 'OS_USERNAME', 'password': 'OS_PASSWORD'}
+        with patch.dict(os.environ, {names[k]: v for k, v in config.items()}, clear=True), \
+             patch.object(lab, '_AUTH_CONFIG', None), patch.object(lab, 'bind_context') as bind:
+            self.assertEqual(lab.auth_config(), config)
+            bind.assert_called_once_with(config)
+
+    def test_context_adopts_existing_stand_and_rejects_other_project(self):
+        with tempfile.TemporaryDirectory(dir=lab.LOCAL) as directory:
+            root = Path(directory)
+            (root / 'terraform-selectel').mkdir()
+            (root / 'terraform-selectel/terraform.tfstate').write_text(json.dumps({'resources': [
+                {'mode': 'managed', 'instances': [{'attributes': {'tenant_id': 'own-project'}}]}]}))
+            with patch.object(lab, 'ROOT', root), patch.object(lab, 'LOCAL', root / '.local'):
+                lab.bind_context({'project_id': 'own-project', 'region': 'ru-7', 'password': 'not-saved'})
+                context = json.loads((root / '.local/context.json').read_text())
+                self.assertEqual(context, {'project_id': 'own-project', 'region': 'ru-7'})
+                with self.assertRaisesRegex(ValueError, 'existing stand project'):
+                    lab.bind_context({'project_id': 'foreign-project', 'region': 'ru-7'})
+
+    def test_redaction_removes_credentials_and_application_secrets(self):
+        with tempfile.TemporaryDirectory(dir=lab.LOCAL) as directory:
+            local = Path(directory)
+            (local / 'secrets.json').write_text(json.dumps({'app': 'application-secret'}))
+            config = dict(zip(['domain_name', 'project_id', 'username', 'password'],
+                              ['sample-account', 'sample-project', 'sample-user', 'sample-password']))
+            with patch.object(lab, 'LOCAL', local), patch.object(lab, '_AUTH_CONFIG', config):
+                original = ' '.join([*config.values(), 'application-secret'])
+                self.assertEqual(lab.redact(original), ' '.join(['<redacted>'] * 5))
+
+    def test_operator_file_removed_only_after_verified_cleanup(self):
+        for success in [True, False]:
+            with self.subTest(success=success), tempfile.TemporaryDirectory(dir=lab.LOCAL) as directory:
+                root = Path(directory)
+                local = root / '.local'
+                local.mkdir()
+                operator = local / 'operator.json'
+                operator.write_text('{}')
+                config = {'project_id': 'test-project', 'region': 'ru-7'}
+                with patch.object(lab, 'ROOT', root), patch.object(lab, 'LOCAL', local), \
+                     patch.object(lab, 'auth_config', return_value=config), patch.object(lab, 'checked_plan'), \
+                     patch.object(lab, 'tf', return_value='{}'), patch.object(lab, 'Cloud') as cloud:
+                    cloud.return_value.config = config
+                    if success:
+                        cloud.return_value.get.return_value = {'floatingips': []}
+                        lab.cleanup()
+                    else:
+                        cloud.return_value.get.side_effect = TimeoutError()
+                        with self.assertRaises(TimeoutError):
+                            lab.cleanup()
+                    self.assertEqual(operator.exists(), not success)
+
     def test_cloud_retries_timed_out_reads(self):
         cloud = lab.Cloud.__new__(lab.Cloud)
         cloud.endpoints, cloud.token = {'compute': 'https://example.invalid'}, 'test-token'

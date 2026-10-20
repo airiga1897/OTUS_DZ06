@@ -1,6 +1,6 @@
 {
   "mode": "failover",
-  "run_id": "489b63ba953d4f27b6ac5e0b0e75ba5b",
+  "run_id": "6216192211fe40a090f58b1072963281",
   "leader": "db2",
   "members": {
     "db1": {
@@ -24,14 +24,14 @@
   "new_write_succeeded": true,
   "new_record": {
     "id": 38,
-    "slug": "failover-c886ff2a34a049ff95976ea23aedebce",
-    "body": "committed-f09e55ea037a48af8c38b937465c85c4"
+    "slug": "failover-61aef28aafc84f448643877f1ceebdd0",
+    "body": "committed-34c1827534554eefa7d65689b7ed20ab"
   },
   "preserved_records": [
     {
       "id": 5,
-      "slug": "baseline-50c5899a0ae0432bbc11d6027c4e9df7",
-      "body": "committed-bbf20271b9e645c199eb3ed44f8333e1"
+      "slug": "baseline-59f16ba4f8ba4e868dba2f9c61520df9",
+      "body": "committed-0729326900c246e0bb1ccb9ac63ac913"
     }
   ],
   "replica_records_verified": false,
@@ -42,7 +42,7 @@
     "articles": 4,
     "full_article_rows_equal": true,
     "inactive_user_preserved": true,
-    "dump_sha256": "0cd5cd97566c57dcd1577d73c3c03a5a829ee7bb619f80bd01e1a52ff27a1180"
+    "dump_sha256": "453eb418907f918edae9c85a7a2116b3eae7d13fa9a870bb599b8eb33cb7ab04"
   },
   "stopped_node": "db1",
   "nova_shutdown_confirmed": true

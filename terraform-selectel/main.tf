@@ -100,7 +100,17 @@ resource "openstack_compute_instance_v2" "node" {
     manage_etc_hosts = true
     users            = [{ name = "otus", groups = ["sudo"], shell = "/bin/bash", sudo = "ALL=(ALL) NOPASSWD:ALL", lock_passwd = true, ssh_authorized_keys = [trimspace(file(pathexpand(var.ssh_public_key_path)))] }]
     ssh_pwauth       = false
-    write_files = each.value.role == "app" ? [{
+    write_files = concat([{
+      path        = "/etc/netplan/99-otus-dz06.yaml"
+      permissions = "0600"
+      content = yamlencode({ network = { version = 2, ethernets = { eth0 = {
+        match       = { macaddress = openstack_networking_port_v2.node[each.key].mac_address }
+        dhcp4       = false
+        addresses   = ["${local.addresses[each.key]}/${split("/", var.subnet_cidr)[1]}"]
+        routes      = [{ to = "default", via = openstack_networking_subnet_v2.lab.gateway_ip }]
+        nameservers = { addresses = ["77.88.8.8", "1.1.1.1"] }
+      } } } })
+      }], each.value.role == "app" ? [{
       path        = "/etc/ssh/sshd_config.d/10-otus-admin-port.conf"
       permissions = "0644"
       content     = "Port 22\n"
@@ -112,11 +122,11 @@ resource "openstack_compute_instance_v2" "node" {
       path        = "/etc/systemd/system/otus-dz06-route.service"
       permissions = "0644"
       content     = "[Unit]\nAfter=network.target\n[Service]\nExecStart=/usr/bin/python3 /root/otus-dz06-route.py\nRestart=on-failure\n[Install]\nWantedBy=multi-user.target\n"
-    }] : []
-    runcmd = each.value.role == "app" ? [
+    }] : [])
+    runcmd = concat(["netplan apply"], each.value.role == "app" ? [
       "sshd -t && systemctl stop ssh.service ssh.socket && systemctl disable ssh.socket && systemctl enable --now ssh.service",
       "systemctl daemon-reload && systemctl enable --now otus-dz06-route.service"
-    ] : []
+    ] : [])
   })}"
   depends_on = [openstack_networking_router_interface_v2.lab]
 }

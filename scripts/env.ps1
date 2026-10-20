@@ -1,23 +1,41 @@
-# Загружать через dot sourcing. Пароль остаётся в окружении текущей сессии.
-param(
-    [string]$AccountNumber,
-    [string]$UserName = '<SELECTEL_USERNAME>',
-    [string]$ProjectId = '<SELECTEL_PROJECT_ID>'
-)
-if (-not $AccountNumber) { $AccountNumber = Read-Host 'Номер аккаунта Selectel' }
-if (-not $AccountNumber -or -not $UserName -or -not $ProjectId) { throw 'Параметры оператора должны быть заполнены.' }
-$taskPassword = Read-Host "Пароль сервисного пользователя $UserName" -AsSecureString
-if ($taskPassword.Length -eq 0) { $taskPassword.Dispose(); throw 'Пароль пуст.' }
-$taskPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($taskPassword)
-try { $env:OS_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($taskPointer) }
-finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($taskPointer)
-    $taskPassword.Dispose()
+﻿# Основной режим: окружение текущей сессии. -SaveLocal — явный режим разработки.
+param([switch]$SaveLocal)
+$settings = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../config/selectel-auth.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$values = @{auth_url=$settings.auth_url; region=$settings.region}
+foreach ($property in $settings.fields.PSObject.Properties) {
+    $field = $property.Value
+    if ($field.secret) {
+        $secure = Read-Host $field.prompt -AsSecureString
+        if ($secure.Length -eq 0) { $secure.Dispose(); throw 'Пароль пуст.' }
+        $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+        try { $value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer); $secure.Dispose() }
+    } else {
+        $value = Read-Host $field.prompt
+        if ([string]::IsNullOrWhiteSpace($value)) { throw 'Все реквизиты должны быть заполнены.' }
+    }
+    $values[$property.Name] = $value
+    Set-Item -Path ('Env:' + $field.env) -Value $value
 }
-$env:OS_AUTH_URL = 'https://cloud.api.selcloud.ru/identity/v3'
-$env:OS_PROJECT_ID = $ProjectId
-$env:OS_REGION_NAME = 'ru-7'
-$env:OS_USER_DOMAIN_NAME = $AccountNumber
-$env:OS_USERNAME = $UserName
+$env:OS_AUTH_URL = $settings.auth_url
+$env:OS_REGION_NAME = $settings.region
 Remove-Item Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue
-Write-Host 'Оператор Selectel загружен в окружение. Пароль не записан в файл.'
+if ($SaveLocal) {
+    $folder = Join-Path $PSScriptRoot '../.local'
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    $path = Join-Path $folder 'operator.json'
+    New-Item -ItemType File -Path $path -Force | Out-Null
+    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
+    $acl = New-Object Security.AccessControl.FileSecurity
+    $acl.SetOwner($sid)
+    $acl.SetAccessRuleProtection($true, $false)
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'Allow')
+    $acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $path -AclObject $acl
+    $values | ConvertTo-Json | Set-Content -LiteralPath $path -Encoding UTF8
+    $env:OTUS_SELECTEL_AUTH = (Resolve-Path $path).Path
+    Write-Host 'Выбран локальный режим разработки. После работы удалите файл реквизитов.'
+} else {
+    Write-Host 'Реквизиты загружены в окружение текущей сессии; файл не создавался.'
+}
+Remove-Variable values,value,secure,pointer -ErrorAction SilentlyContinue
