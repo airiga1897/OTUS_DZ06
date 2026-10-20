@@ -12,6 +12,41 @@ import lab
 
 
 class LifecycleTests(unittest.TestCase):
+    def test_cloud_retries_timed_out_reads(self):
+        cloud = lab.Cloud.__new__(lab.Cloud)
+        cloud.endpoints, cloud.token = {'compute': 'https://example.invalid'}, 'test-token'
+        with patch.object(lab, 'request_json', side_effect=[TimeoutError(), ({'servers': []}, {})]) as request, \
+             patch.object(lab.time, 'sleep'):
+            self.assertEqual(cloud.get('compute', '/servers'), {'servers': []})
+            self.assertEqual(request.call_count, 2)
+
+    def test_cloud_does_not_retry_power_actions(self):
+        cloud = lab.Cloud.__new__(lab.Cloud)
+        cloud.endpoints, cloud.token = {'compute': 'https://example.invalid'}, 'test-token'
+        with patch.object(lab, 'request_json', side_effect=TimeoutError()) as request:
+            with self.assertRaises(TimeoutError):
+                cloud.get('compute', '/servers/own-id/action', {'os-stop': None})
+            self.assertEqual(request.call_count, 1)
+
+    def test_placement_requires_hard_policy_and_distinct_hosts(self):
+        ids = {'db1': 'id1', 'db2': 'id2', 'db3': 'id3'}
+        for policy, hosts, valid in [(['anti-affinity'], ['a', 'b', 'c'], True),
+                                     (['soft-anti-affinity'], ['a', 'b', 'c'], False),
+                                     (['anti-affinity'], ['a', 'a', 'b'], False)]:
+            group = {'name': 'otus-dz06-db', 'policies': policy, 'members': list(ids.values())}
+            servers = {identifier: {'name': 'otus-dz06-' + name, 'status': 'ACTIVE', 'hostId': host}
+                       for (name, identifier), host in zip(ids.items(), hosts)}
+            with self.subTest(policy=policy, hosts=hosts), patch.object(lab, 'Cloud') as cloud, \
+                 patch.object(lab, 'save'), patch.object(lab, 'auth_config', return_value={'region': 'ru-7'}):
+                cloud.return_value.get.side_effect = lambda service, path: (
+                    {'server_groups': [group]} if path == '/os-server-groups'
+                    else {'server': servers[path.rsplit('/', 1)[1]]})
+                if valid:
+                    lab.check_placement({'server_ids': ids})
+                else:
+                    with self.assertRaises(RuntimeError):
+                        lab.check_placement({'server_ids': ids})
+
     def test_verify_includes_failure_and_recovery(self):
         with patch('sys.argv', ['lab.py', 'verify']), patch.object(lab, 'verify') as verify:
             lab.main()

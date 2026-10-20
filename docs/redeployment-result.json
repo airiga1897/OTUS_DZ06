@@ -63,5 +63,7 @@
       "inactive_user_preserved": true,
       "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
     }
-  }
+  },
+  "region": "ru-9",
+  "availability_zone": "ru-9a"
 }

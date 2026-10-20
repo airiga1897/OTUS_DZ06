@@ -14,7 +14,7 @@
 
 Номер аккаунта берётся из панели управления, UUID проекта — из свойств проекта,
 имя и пароль — из настроек созданного сервисного пользователя. Используются
-пул `ru-9` и зона `ru-9a`. Требуемые ресурсы перечислены в README; `prepare`
+пул `ru-7` и зона `ru-7a`. Требуемые ресурсы перечислены в README; `prepare`
 проверяет свободные квоты с учётом уже работающих стендов.
 
 В текущей версии идентификатор разрешённого проекта закреплён в константе
@@ -48,7 +48,7 @@ $env:OTUS_TERRAFORM = 'C:\Tools\Terraform\terraform.exe'
 {
   "auth_url": "https://cloud.api.selcloud.ru/identity/v3",
   "project_id": "<UUID собственного проекта>",
-  "region": "ru-9",
+  "region": "ru-7",
   "domain_name": "<номер аккаунта>",
   "username": "<сервисный пользователь>",
   "password": "<пароль>"
@@ -92,6 +92,7 @@ SSH ВМ приложения доступен на TCP/443; доступ к В�
 | `.local/otus_dz06` и `.pub` | Приватный и публичный SSH-ключи |
 | `.local/secrets.json` | Случайные пароли БД и ключи приложения |
 | `.local/known_hosts`, `.local/trusted-hosts.json` | Проверенные через облачный API SSH-ключи серверов |
+| `.local/cleanup-fips.json` | UUID собственных floating IP для повторного аудита после очистки state |
 | `.local/runs/` | Полные журналы команд |
 | `terraform-selectel/terraform.tfvars.json` | Параметры конкретного запуска |
 | `terraform-selectel/terraform.tfstate` | Состояние созданной инфраструктуры |

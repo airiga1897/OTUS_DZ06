@@ -16,7 +16,7 @@ finally {
 }
 $env:OS_AUTH_URL = 'https://cloud.api.selcloud.ru/identity/v3'
 $env:OS_PROJECT_ID = $ProjectId
-$env:OS_REGION_NAME = 'ru-9'
+$env:OS_REGION_NAME = 'ru-7'
 $env:OS_USER_DOMAIN_NAME = $AccountNumber
 $env:OS_USERNAME = $UserName
 Remove-Item Env:OTUS_SELECTEL_AUTH -ErrorAction SilentlyContinue

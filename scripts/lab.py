@@ -49,7 +49,7 @@ def auth_config():
         config = config_from_env()
     else:
         raise RuntimeError('Set OTUS_SELECTEL_AUTH to local operator JSON or load OS_* environment')
-    if config['project_id'] != PROJECT or config['region'] != 'ru-9':
+    if config['project_id'] != PROJECT or config['region'] != 'ru-7':
         raise ValueError('Unexpected project/region')
     _AUTH_CONFIG = config
     return config
@@ -60,11 +60,20 @@ class Cloud:
         self.config = auth_config()
         self.token, catalog = authenticate(self.config)
         self.endpoints = {s['type']: e['url'].rstrip('/') for s in catalog for e in s['endpoints']
-                          if e.get('interface') == 'public' and e.get('region') == 'ru-9'
+                          if e.get('interface') == 'public' and e.get('region') == 'ru-7'
                           and e['url'].startswith('https://')}
 
     def get(self, service, path, payload=None):
-        return request_json(self.endpoints[service] + path, token=self.token, payload=payload)[0]
+        for attempt in range(3):
+            try:
+                return request_json(self.endpoints[service] + path, token=self.token, payload=payload)[0]
+            except (urllib.error.URLError, TimeoutError) as error:
+                # Retrying power actions could repeat a mutation; retry GET only.
+                if payload is not None or attempt == 2 or (
+                    isinstance(error, urllib.error.HTTPError) and error.code < 500 and error.code != 429
+                ):
+                    raise
+                time.sleep(2)
 
 
 def tf(*args, capture=False):
@@ -91,11 +100,11 @@ def tf(*args, capture=False):
 
 def preflight():
     cloud = Cloud()
-    compute = cloud.get('compute', '/os-quota-sets/' + PROJECT + '/detail')['quota_set']['az_quotas']['ru-9a']
+    compute = cloud.get('compute', '/os-quota-sets/' + PROJECT + '/detail')['quota_set']['az_quotas']['ru-7a']
     volumes = cloud.get('volumev3', '/os-quota-sets/' + PROJECT + '?usage=True')['quota_set']
     network = cloud.get('network', '/v2.0/quotas/' + PROJECT + '/details.json')['quota']
     demands = [(compute['cores'], 7), (compute['ram'], 14336), (compute['instances'], 4),
-               (volumes['gigabytes_basicssd.ru-9a'], 80), (network['floatingip'], 1),
+               (volumes['gigabytes_basicssd.ru-7a'], 80), (network['floatingip'], 1),
                (network['network'], 1), (network['subnet'], 1), (network['router'], 1),
                (network['security_group'], 1), (network['security_group_rule'], 3), (network['port'], 7)]
     for quota, needed in demands:
@@ -107,9 +116,8 @@ def preflight():
     if any(ipaddress.ip_network(s['cidr']).overlaps(ipaddress.ip_network('10.66.0.0/24'))
            for s in subnets if s.get('ip_version') == 4 and not s.get('name', '').startswith(PREFIX)):
         raise RuntimeError('DZ06 subnet overlaps an existing subnet')
-    report = {'time_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-              'compute': compute, 'ssd': volumes['gigabytes_basicssd.ru-9a'],
-              'network': network, 'required': {'instances': 4, 'cores': 7, 'ram_mib': 14336, 'ssd_gb': 80}}
+    report = {'region': 'ru-7', 'availability_zone': 'ru-7a',
+              'quotas_sufficient': True, 'subnet_no_conflict': True}
     save(ROOT / 'docs/preflight.json', report)
     print('Free quotas checked, including concurrent project usage', flush=True)
 
@@ -151,8 +159,8 @@ def prepare():
         raise ValueError('Only explicit operator IPv4 /32 addresses are supported')
     cidrs = list(dict.fromkeys(existing_cidrs + [ip + '/32']))
     save(variables_path, {
-        'region': 'ru-9', 'availability_zone': 'ru-9a', 'image_id': images[0]['id'],
-        'volume_type': 'basicssd.ru-9a', 'flavor_ids': ids, 'admin_cidrs': cidrs,
+        'region': 'ru-7', 'availability_zone': 'ru-7a', 'image_id': images[0]['id'],
+        'volume_type': 'basicssd.ru-7a', 'flavor_ids': ids, 'admin_cidrs': cidrs,
         'route_probe_key': json.loads(secrets_path.read_text())['api']})
     tf('init', '-input=false', '-no-color')
     tf('validate', '-no-color')
@@ -204,6 +212,14 @@ def cleanup():
     own_fips = {i['attributes']['id'] for r in before.get('resources', [])
                 if r.get('mode') == 'managed' and r['type'] == 'openstack_networking_floatingip_v2'
                 for i in r.get('instances', []) if i.get('attributes', {}).get('id')}
+    scope_path = LOCAL / 'cleanup-fips.json'
+    region = auth_config()['region']
+    if own_fips:
+        save(scope_path, {'region': region, 'ids': sorted(own_fips)})
+    elif scope_path.exists():
+        scope = json.loads(scope_path.read_text())
+        if scope['region'] == region:
+            own_fips = set(scope['ids'])
     plan = checked_plan(True)
     tf('apply', '-input=false', '-no-color', str(plan))
     state = json.loads(tf('show', '-json', capture=True))
@@ -227,7 +243,7 @@ def cleanup():
         if not remaining and not remaining_fips or time.monotonic() >= deadline:
             break
         time.sleep(3)
-    save(ROOT / 'docs/cleanup-result.json', {'time_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    save(ROOT / 'docs/cleanup-result.json', {'region': cloud.config['region'],
          'managed_remaining': len(managed), 'named_remaining': remaining,
          'own_floating_ips_remaining': remaining_fips, 'success': not remaining and not remaining_fips})
     if remaining or remaining_fips:
@@ -322,9 +338,29 @@ def upload_tree(client):
     remote(client, 'mkdir -p /home/otus/dz06 && tar xzf /home/otus/dz06.tar.gz -C /home/otus/dz06', 'upload')
 
 
+def check_placement(lab):
+    cloud = Cloud()
+    ids = {lab['server_ids'][name] for name in ['db1', 'db2', 'db3']}
+    groups = cloud.get('compute', '/os-server-groups')['server_groups']
+    groups = [g for g in groups if g.get('name') == PREFIX + '-db' and set(g.get('members', [])) == ids]
+    if len(groups) != 1 or groups[0].get('policies') != ['anti-affinity']:
+        raise RuntimeError('Database nodes must belong to their hard anti-affinity group')
+    hosts = []
+    for name in ['db1', 'db2', 'db3']:
+        server = cloud.get('compute', '/servers/' + lab['server_ids'][name])['server']
+        if server['name'] != PREFIX + '-' + name or server['status'] != 'ACTIVE':
+            raise RuntimeError('Unexpected database node identity or state')
+        hosts.append(server.get('hostId'))
+    if not all(hosts) or len(set(hosts)) != 3:
+        raise RuntimeError('Three distinct database host IDs required')
+    save(ROOT / 'docs/placement-result.json', {'success': True, 'region': auth_config()['region'],
+         'policy': 'anti-affinity', 'database_nodes': 3, 'distinct_hosts': 3})
+
+
 def configure():
     from render import node_config
     lab = lab_output()
+    check_placement(lab)
     trust(lab)
     try:
         with connect(lab):

@@ -1,24 +1,24 @@
 {
   "mode": "baseline",
-  "run_id": "c6ff49f4d7544ddeb429ec99af780adb",
-  "leader": "db2",
+  "run_id": "489b63ba953d4f27b6ac5e0b0e75ba5b",
+  "leader": "db1",
   "members": {
     "db1": {
-      "role": "replica",
+      "role": "primary",
       "state": "running",
-      "timeline": 2,
+      "timeline": 1,
       "server_version": 160015
     },
     "db2": {
-      "role": "primary",
+      "role": "replica",
       "state": "running",
-      "timeline": 2,
+      "timeline": 1,
       "server_version": 160015
     },
     "db3": {
       "role": "replica",
       "state": "running",
-      "timeline": 2,
+      "timeline": 1,
       "server_version": 160015
     }
   },
@@ -26,9 +26,9 @@
   "committed_record_preserved": true,
   "new_write_succeeded": true,
   "new_record": {
-    "id": 41,
-    "slug": "baseline-65550f839e504e7d9130a9df15e2ccea",
-    "body": "committed-16c25382554c4a9ab9d8305febc315fc"
+    "id": 5,
+    "slug": "baseline-50c5899a0ae0432bbc11d6027c4e9df7",
+    "body": "committed-bbf20271b9e645c199eb3ed44f8333e1"
   },
   "preserved_records": [],
   "replica_records_verified": false,
@@ -39,6 +39,6 @@
     "articles": 4,
     "full_article_rows_equal": true,
     "inactive_user_preserved": true,
-    "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+    "dump_sha256": "0cd5cd97566c57dcd1577d73c3c03a5a829ee7bb619f80bd01e1a52ff27a1180"
   }
 }

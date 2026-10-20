@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "pools": [
+    {
+      "region": "ru-7",
+      "named_remaining": [],
+      "success": true
+    },
+    {
+      "region": "ru-9",
+      "named_remaining": [],
+      "success": true
+    }
+  ]
+}

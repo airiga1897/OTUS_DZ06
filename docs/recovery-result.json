@@ -1,24 +1,24 @@
 {
   "mode": "recovered",
-  "run_id": "c6ff49f4d7544ddeb429ec99af780adb",
-  "leader": "db3",
+  "run_id": "489b63ba953d4f27b6ac5e0b0e75ba5b",
+  "leader": "db2",
   "members": {
     "db1": {
       "role": "replica",
       "state": "running",
-      "timeline": 3,
+      "timeline": 2,
       "server_version": 160015
     },
     "db2": {
-      "role": "replica",
+      "role": "primary",
       "state": "running",
-      "timeline": 3,
+      "timeline": 2,
       "server_version": 160015
     },
     "db3": {
-      "role": "primary",
+      "role": "replica",
       "state": "running",
-      "timeline": 3,
+      "timeline": 2,
       "server_version": 160015
     }
   },
@@ -26,20 +26,20 @@
   "committed_record_preserved": true,
   "new_write_succeeded": true,
   "new_record": {
-    "id": 72,
-    "slug": "recovered-acab45b6d4ad4c4e8e0d58c17f04d17e",
-    "body": "committed-f22a827389fd4b7e89a082338c3e50c5"
+    "id": 39,
+    "slug": "recovered-f70f06af22924e02a6925594f545b21a",
+    "body": "committed-b9e5ed8d9f6048cd912bc9a0e8c0fd24"
   },
   "preserved_records": [
     {
-      "id": 41,
-      "slug": "baseline-65550f839e504e7d9130a9df15e2ccea",
-      "body": "committed-16c25382554c4a9ab9d8305febc315fc"
+      "id": 5,
+      "slug": "baseline-50c5899a0ae0432bbc11d6027c4e9df7",
+      "body": "committed-bbf20271b9e645c199eb3ed44f8333e1"
     },
     {
-      "id": 71,
-      "slug": "failover-12b68079ccf242ec8db3e63a889236e6",
-      "body": "committed-d2468cebca1246d2bb1d91b20cbe3259"
+      "id": 38,
+      "slug": "failover-c886ff2a34a049ff95976ea23aedebce",
+      "body": "committed-f09e55ea037a48af8c38b937465c85c4"
     }
   ],
   "replica_records_verified": true,
@@ -50,6 +50,6 @@
     "articles": 4,
     "full_article_rows_equal": true,
     "inactive_user_preserved": true,
-    "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+    "dump_sha256": "0cd5cd97566c57dcd1577d73c3c03a5a829ee7bb619f80bd01e1a52ff27a1180"
   }
 }

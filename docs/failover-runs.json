@@ -305,5 +305,7 @@
         }
       }
     }
-  ]
+  ],
+  "region": "ru-9",
+  "availability_zone": "ru-9a"
 }
