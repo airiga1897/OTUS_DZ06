@@ -1,0 +1,54 @@
+{
+  "scope": "local_checks_only",
+  "script_tests": {
+    "passed": 88,
+    "cloud_api": "mock",
+    "ssh": "mock"
+  },
+  "django_tests": {
+    "passed": 14,
+    "database": "isolated_SQLite_test_database"
+  },
+  "terraform": {
+    "version": "1.16.3",
+    "validate": "passed",
+    "mock_provider_runs_passed": 3,
+    "scenarios": [
+      "initial",
+      "expanded",
+      "repeat_expanded"
+    ],
+    "existing_vm_disk_port_ids_preserved": true
+  },
+  "ansible": {
+    "integrated_into_deploy": true,
+    "roles": [
+      "common",
+      "etcd",
+      "patroni",
+      "haproxy",
+      "portal"
+    ],
+    "yaml_and_jinja_checks": "passed",
+    "inventory_and_controller_cleanup_contracts": "passed_with_mock_SSH",
+    "cloud_execution_evidence": "test-cycle-result.json"
+  },
+  "initial_data": {
+    "source": "bundled_Django_fixture",
+    "runtime_SQLite": false,
+    "atomic_database_marker": true
+  },
+  "published": false,
+  "portability": {
+    "capability_states": [
+      "supported",
+      "unsupported",
+      "unknown"
+    ],
+    "provider_scope_namespace_placement_binding": true,
+    "inventory_from_infrastructure_contract": true,
+    "adapter": "selectel",
+    "yc_implemented": false
+  },
+  "cloud_status_reference": "test-cycle-result.json; local checks do not prove cloud readiness"
+}

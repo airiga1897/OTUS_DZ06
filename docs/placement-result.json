@@ -1,6 +1,6 @@
 {
   "success": true,
-  "region": "ru-7",
+  "region": "ru-9",
   "policy": "anti-affinity",
   "database_nodes": 3,
   "distinct_hosts": 3

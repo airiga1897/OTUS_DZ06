@@ -1,27 +1,28 @@
 locals {
-  nodes = {
-    app = { host = 10, role = "app" }
-    db1 = { host = 21, role = "db" }
-    db2 = { host = 22, role = "db" }
-    db3 = { host = 23, role = "db" }
-  }
+  nodes     = var.nodes
   addresses = { for name, n in local.nodes : name => cidrhost(var.subnet_cidr, n.host) }
 }
 data "openstack_networking_network_v2" "external" {
   name     = var.external_network_name
   external = true
 }
-resource "openstack_networking_network_v2" "lab" { name = var.name_prefix }
+resource "openstack_networking_network_v2" "lab" {
+  name                    = var.name_prefix
+  port_security_enabled   = true
+  availability_zone_hints = [var.availability_zone]
+}
 resource "openstack_networking_subnet_v2" "lab" {
   name            = var.name_prefix
   network_id      = openstack_networking_network_v2.lab.id
   cidr            = var.subnet_cidr
   ip_version      = 4
+  enable_dhcp     = true
   dns_nameservers = ["77.88.8.8", "1.1.1.1"]
 }
 resource "openstack_networking_router_v2" "lab" {
-  name                = var.name_prefix
-  external_network_id = data.openstack_networking_network_v2.external.id
+  name                    = var.name_prefix
+  availability_zone_hints = [var.availability_zone]
+  external_network_id     = data.openstack_networking_network_v2.external.id
 }
 resource "openstack_networking_router_interface_v2" "lab" {
   router_id = openstack_networking_router_v2.lab.id
@@ -101,31 +102,28 @@ resource "openstack_compute_instance_v2" "node" {
     users            = [{ name = "otus", groups = ["sudo"], shell = "/bin/bash", sudo = "ALL=(ALL) NOPASSWD:ALL", lock_passwd = true, ssh_authorized_keys = [trimspace(file(pathexpand(var.ssh_public_key_path)))] }]
     ssh_pwauth       = false
     write_files = concat([{
-      path        = "/etc/netplan/99-otus-dz06.yaml"
+      path        = "/root/${var.name_prefix}-check-ipv4.py"
       permissions = "0600"
-      content = yamlencode({ network = { version = 2, ethernets = { eth0 = {
-        match       = { macaddress = openstack_networking_port_v2.node[each.key].mac_address }
-        dhcp4       = false
-        addresses   = ["${local.addresses[each.key]}/${split("/", var.subnet_cidr)[1]}"]
-        routes      = [{ to = "default", via = openstack_networking_subnet_v2.lab.gateway_ip }]
-        nameservers = { addresses = ["77.88.8.8", "1.1.1.1"] }
-      } } } })
-      }], each.value.role == "app" ? [{
-      path        = "/etc/ssh/sshd_config.d/10-otus-admin-port.conf"
-      permissions = "0644"
-      content     = "Port 22\n"
+      content     = file("${path.module}/../scripts/remote/check_ipv4.py")
       }, {
-      path        = "/root/otus-dz06-route.py"
+      path        = "/root/${var.name_prefix}-network-diagnostics.py"
+      permissions = "0600"
+      content     = file("${path.module}/../scripts/remote/network_diagnostics.py")
+      }], each.value.role == "app" ? [{
+      path        = "/root/${var.name_prefix}-route.py"
       permissions = "0600"
       content     = templatefile("${path.module}/../config/route-probe.py.tftpl", { probe_key = var.route_probe_key })
       }, {
-      path        = "/etc/systemd/system/otus-dz06-route.service"
+      path        = "/etc/systemd/system/${var.name_prefix}-route.service"
       permissions = "0644"
-      content     = "[Unit]\nAfter=network.target\n[Service]\nExecStart=/usr/bin/python3 /root/otus-dz06-route.py\nRestart=on-failure\n[Install]\nWantedBy=multi-user.target\n"
+      content     = "[Unit]\nAfter=network.target\n[Service]\nExecStart=/usr/bin/python3 /root/${var.name_prefix}-route.py\nRestart=on-failure\n[Install]\nWantedBy=multi-user.target\n"
     }] : [])
-    runcmd = concat(["netplan apply"], each.value.role == "app" ? [
-      "sshd -t && systemctl stop ssh.service ssh.socket && systemctl disable ssh.socket && systemctl enable --now ssh.service",
-      "systemctl daemon-reload && systemctl enable --now otus-dz06-route.service"
+    runcmd = concat([
+      "set -eu",
+      "python3 /root/${var.name_prefix}-check-ipv4.py ${local.addresses[each.key]}/${split("/", var.subnet_cidr)[1]} ${openstack_networking_subnet_v2.lab.gateway_ip} || { python3 /root/${var.name_prefix}-network-diagnostics.py; exit 1; }"
+      ], each.value.role == "app" ? [
+      "systemctl daemon-reload",
+      "systemctl enable --now ${var.name_prefix}-route.service"
     ] : [])
   })}"
   depends_on = [openstack_networking_router_interface_v2.lab]
@@ -141,6 +139,28 @@ output "lab" {
     site_url      = "http://${openstack_networking_floatingip_v2.app.address}"
     app_public_ip = openstack_networking_floatingip_v2.app.address
     private_ips   = local.addresses
+    subnet_cidr   = var.subnet_cidr
     server_ids    = { for name, n in openstack_compute_instance_v2.node : name => n.id }
+    volume_ids    = { for name, n in openstack_blockstorage_volume_v3.boot : name => n.id }
+    port_ids      = { for name, n in openstack_networking_port_v2.node : name => n.id }
+    etcd_members  = var.etcd_members
+  }
+}
+
+output "infrastructure" {
+  value = {
+    provider    = "selectel"
+    scope       = { project_id = openstack_networking_network_v2.lab.tenant_id }
+    namespace   = var.name_prefix
+    placement   = { region = var.region, zone = var.availability_zone }
+    subnet_cidr = var.subnet_cidr
+    nodes = { for name, node in var.nodes : name => {
+      roles      = concat([node.role], contains(var.etcd_members, name) ? ["etcd"] : [])
+      id         = openstack_compute_instance_v2.node[name].id
+      volume_id  = openstack_blockstorage_volume_v3.boot[name].id
+      port_id    = openstack_networking_port_v2.node[name].id
+      private_ip = local.addresses[name]
+      public_ip  = name == "app" ? openstack_networking_floatingip_v2.app.address : null
+    } }
   }
 }

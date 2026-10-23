@@ -1,7 +1,6 @@
-"""Изолированный жизненный цикл ДЗ06; test всегда выполняет cleanup в finally."""
+"""User commands for the persistent stand and an explicitly destructive test-cycle."""
 import argparse
 import base64
-import concurrent.futures
 import datetime
 import io
 import json
@@ -15,21 +14,30 @@ import sys
 import tarfile
 import time
 import urllib.error
-import uuid
+import pool_selection as pools
+import topology
+import stack_config
+import cloud_settings
+from cloud_settings import terraform_root
+from cloud_contract import InfrastructureResult, validate_binding
 
 import paramiko
-import yaml
+from network_diagnostics import BootstrapNetworkError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from selectel_api import authenticate, request_json
+from selectel_adapter import SelectelAdapter
 from credentials import load_credentials, to_environment, credential_values
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / '.local'
-PREFIX = 'otus-dz06'
-TF = ROOT.parent / 'OTUS_DZ04/.tools/terraform.exe'
+STACK = stack_config.load()
+CLOUD = cloud_settings.load(ROOT)
+PREFIX = STACK['name_prefix']
+TF = ROOT / '.tools/terraform.exe'
 RUN = LOCAL / 'runs' / datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 _AUTH_CONFIG = None
+_TEST_CYCLE_ID = None
+_TOPOLOGY_OVERRIDE = None
 
 
 def save(path, value):
@@ -52,16 +60,12 @@ def redact(text):
 
 def bind_context(config):
     path = LOCAL / 'context.json'
-    expected = {k: config[k] for k in ['project_id', 'region']}
-    state_path = ROOT / 'terraform-selectel/terraform.tfstate'
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
-    resources = [r for r in state.get('resources', []) if r.get('mode') == 'managed' and r.get('instances')]
-    projects = {i.get('attributes', {}).get('tenant_id') for r in resources for i in r['instances']}
-    projects.discard(None)
-    if projects and projects != {config['project_id']}:
-        raise ValueError('Credentials do not match the existing stand project')
-    if path.exists() and resources and json.loads(path.read_text()) != expected:
-        raise ValueError('Credentials do not match the existing stand context')
+    from selectel_adapter import binding
+    expected = binding(config, PREFIX, placement().get('availability_zone'))
+    from local_runtime import validate_state
+    validate_state(ROOT, config, PREFIX)
+    if path.exists():
+        validate_binding(json.loads(path.read_text()), expected)
     save(path, expected)
 
 
@@ -75,92 +79,60 @@ def auth_config():
     return config
 
 
-class Cloud:
-    def __init__(self):
-        self.config = auth_config()
-        self.token, catalog = authenticate(self.config)
-        self.endpoints = {s['type']: e['url'].rstrip('/') for s in catalog for e in s['endpoints']
-                          if e.get('interface') == 'public' and e.get('region') == 'ru-7'
-                          and e['url'].startswith('https://')}
-
-    def get(self, service, path, payload=None):
-        for attempt in range(3):
-            try:
-                return request_json(self.endpoints[service] + path, token=self.token, payload=payload)[0]
-            except (urllib.error.URLError, TimeoutError) as error:
-                # Retrying power actions could repeat a mutation; retry GET only.
-                if payload is not None or attempt == 2 or (
-                    isinstance(error, urllib.error.HTTPError) and error.code < 500 and error.code != 429
-                ):
-                    raise
-                time.sleep(2)
+class Cloud(SelectelAdapter):
+    """Bind the selected adapter to this clone's checked local context."""
+    def __init__(self, bind=True):
+        super().__init__(auth_config() if bind else load_credentials())
 
 
 def tf(*args, capture=False):
     config = auth_config()
     env = dict(os.environ)
     env.update(to_environment(config))
-    env['TF_CLI_CONFIG_FILE'] = str(ROOT / 'terraform-selectel.rc')
+    for name in list(env):
+        if name.startswith('TF_VAR_') or name in {'TF_LOG', 'TF_LOG_CORE', 'TF_LOG_PROVIDER', 'TF_LOG_PATH', 'OS_DEBUG', 'OTUS_SELECTEL_AUTH'}:
+            env.pop(name, None)
+    env['TF_CLI_CONFIG_FILE'] = str(ROOT / (CLOUD['terraform_directory'] + '.rc'))
     env['TF_IN_AUTOMATION'] = '1'
-    binary = os.environ.get('OTUS_TERRAFORM', str(TF))
-    result = subprocess.run([binary, '-chdir=' + str(ROOT / 'terraform-selectel'), *args],
+    binary = str(TF)
+    result = subprocess.run([binary, '-chdir=' + str(terraform_root(ROOT)), *args],
                             env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     RUN.mkdir(parents=True, exist_ok=True)
     output = redact((result.stdout + result.stderr).decode(errors='replace'))
     (RUN / ('terraform-' + args[0] + '-' + str(time.time_ns()) + '.log')).write_text(output, encoding='utf-8')
     if result.returncode:
         print(output[-5000:], flush=True)
-        raise RuntimeError('Terraform ' + args[0] + ' failed; see local run log')
+        raise pools.TerraformError(output)
     if capture:
         return result.stdout.decode()
     print('Terraform ' + args[0] + ': OK', flush=True)
 
 
+def placement():
+    return pools.policy(ROOT, 'placement.json', 'context.json')
+
+
+def desired_topology():
+    return _TOPOLOGY_OVERRIDE if _TOPOLOGY_OVERRIDE is not None else topology.load(ROOT)
+
+
 def preflight():
-    cloud = Cloud()
-    project = cloud.config['project_id']
-    compute = cloud.get('compute', '/os-quota-sets/' + project + '/detail')['quota_set']['az_quotas']['ru-7a']
-    volumes = cloud.get('volumev3', '/os-quota-sets/' + project + '?usage=True')['quota_set']
-    network = cloud.get('network', '/v2.0/quotas/' + project + '/details.json')['quota']
-    demands = [(compute['cores'], 7), (compute['ram'], 14336), (compute['instances'], 4),
-               (volumes['gigabytes_basicssd.ru-7a'], 80), (network['floatingip'], 1),
-               (network['network'], 1), (network['subnet'], 1), (network['router'], 1),
-               (network['security_group'], 1), (network['security_group_rule'], 3), (network['port'], 7)]
-    for quota, needed in demands:
-        free = quota['limit'] - quota.get('in_use', quota.get('used', 0)) - quota.get('reserved', 0)
-        if quota['limit'] != -1 and free < needed:
-            raise RuntimeError('Insufficient free quota; no resources created')
-    subnets = cloud.get('network', '/v2.0/subnets')['subnets']
-    import ipaddress
-    if any(ipaddress.ip_network(s['cidr']).overlaps(ipaddress.ip_network('10.66.0.0/24'))
-           for s in subnets if s.get('ip_version') == 4 and not s.get('name', '').startswith(PREFIX)):
-        raise RuntimeError('DZ06 subnet overlaps an existing subnet')
-    report = {'region': 'ru-7', 'availability_zone': 'ru-7a',
-              'quotas_sufficient': True, 'subnet_no_conflict': True}
-    save(ROOT / 'docs/preflight.json', report)
-    print('Free quotas checked, including concurrent project usage', flush=True)
+    from selectel_adapter import preflight as check
+    return check(sys.modules[__name__])
 
 
 def prepare():
     preflight()
     cloud = Cloud()
-    image_base = cloud.endpoints['image'].removesuffix('/v2')
-    images = request_json(image_base + '/v2/images?name=Ubuntu%2024.04%20LTS%2064-bit&status=active', token=cloud.token)[0]
-    images = [i for i in images['images'] if i.get('visibility') == 'public' and i.get('min_disk', 0) <= 20]
-    if len(images) != 1:
-        raise ValueError('Expected one compatible public Ubuntu image')
-    flavors = cloud.get('compute', '/flavors/detail')['flavors']
-    ids = {}
-    for role, name in {'app': 'SL1.1-2048', 'db': 'SL1.2-4096'}.items():
-        matches = [f for f in flavors if f['name'] == name]
-        if len(matches) != 1:
-            raise ValueError('Flavor missing: ' + name)
-        ids[role] = matches[0]['id']
+    choice = pools.selected(ROOT)
+    if not choice:
+        raise ValueError('Use prepare_selected to discover a complete pool/segment')
+    images = [{'id': choice['image_id']}]
+    ids = choice['flavor_ids']
     import ipaddress
     import urllib.request
-    ip = urllib.request.urlopen('https://api.ipify.org', timeout=15).read().decode().strip()
-    if ipaddress.ip_address(ip).version != 4:
-        raise ValueError('IPv4 operator required')
+    from operator_network import discover_cidrs, allowed_cidrs
+    observed_cidrs = discover_cidrs(placement()['operator_ip_services'])
     LOCAL.mkdir(exist_ok=True)
     key, pub = LOCAL / 'otus_dz06', LOCAL / 'otus_dz06.pub'
     if key.exists() != pub.exists():
@@ -172,20 +144,21 @@ def prepare():
     secrets_path = LOCAL / 'secrets.json'
     if not secrets_path.exists():
         save(secrets_path, {k: secrets.token_urlsafe(30) for k in ['postgres', 'replicator', 'app', 'django', 'api']})
-    variables_path = ROOT / 'terraform-selectel/terraform.tfvars.json'
+    variables_path = terraform_root(ROOT) / 'terraform.tfvars.json'
     existing_cidrs = json.loads(variables_path.read_text()).get('admin_cidrs', []) if variables_path.exists() else []
-    if any(ipaddress.ip_network(c).prefixlen != 32 for c in existing_cidrs):
-        raise ValueError('Only explicit operator IPv4 /32 addresses are supported')
-    cidrs = list(dict.fromkeys(existing_cidrs + [ip + '/32']))
+    cidrs = allowed_cidrs(placement().get('admin_cidrs', []), observed_cidrs, existing_cidrs)
     save(variables_path, {
-        'region': 'ru-7', 'availability_zone': 'ru-7a', 'image_id': images[0]['id'],
-        'volume_type': 'basicssd.ru-7a', 'flavor_ids': ids, 'admin_cidrs': cidrs,
-        'route_probe_key': json.loads(secrets_path.read_text())['api']})
+        'region': placement()['region'], 'availability_zone': placement()['availability_zone'], 'image_id': images[0]['id'],
+        'volume_type': placement()['volume_type'], 'flavor_ids': ids, 'admin_cidrs': cidrs,
+        'route_probe_key': json.loads(secrets_path.read_text())['api'],
+        'boot_disk_gb': placement()['boot_disk_gb'], 'name_prefix': PREFIX,
+        'subnet_cidr': STACK['subnet_cidr'], **desired_topology()})
     tf('init', '-input=false', '-no-color')
     tf('validate', '-no-color')
 
 
-def checked_plan(destroy=False):
+def checked_plan(destroy=False, allowed_new_nodes=None, access_cidr=None):
+    before_ids = managed_ids()
     plan = LOCAL / ('destroy.tfplan' if destroy else 'create.tfplan')
     tf('plan', '-input=false', '-no-color', *(['-destroy'] if destroy else []), '-out=' + str(plan))
     data = json.loads(tf('show', '-json', str(plan), capture=True))
@@ -194,23 +167,45 @@ def checked_plan(destroy=False):
     for resource in resources:
         if resource.get('mode') == 'managed':
             name = resource.get('values', {}).get('name')
-            if name and not name.startswith(PREFIX):
+            if name and name != PREFIX and not name.startswith(PREFIX + '-'):
                 raise ValueError('Foreign resource in state/plan')
     for change in data.get('resource_changes', []):
         if change.get('mode') == 'data':
             continue
+        if not destroy:
+            from infrastructure import validate_existing_identity
+            validate_existing_identity(change, before_ids)
         actions = change['change']['actions']
+        if access_cidr and actions != ['no-op']:
+            from operator_network import validate_access_plan
+            if actions != ['create']:
+                raise ValueError('Route plan cannot alter existing resources')
+            validate_access_plan(change, access_cidr,
+                                 before_ids.get(('openstack_networking_secgroup_v2', 'lab', '')))
         if actions not in (['no-op'], ['delete'] if destroy else ['create']):
             raise ValueError('Unexpected mutation in plan: ' + change['address'])
+        if not destroy and allowed_new_nodes is not None and actions == ['create']:
+            from infrastructure import validate_node_creation
+            validate_node_creation(change, allowed_new_nodes)
     return plan
 
 
 def lab_output():
-    return json.loads(tf('output', '-json', 'lab', capture=True))
+    result = infrastructure_output().application()
+    result['site_url'] = 'http://' + result['app_public_ip']
+    return result
+
+
+def infrastructure_output():
+    result = InfrastructureResult.from_dict(json.loads(tf('output', '-json', 'infrastructure', capture=True)))
+    validate_binding(json.loads((LOCAL / 'context.json').read_text()), result.binding())
+    return result
 
 
 def managed_ids():
-    path = ROOT / 'terraform-selectel/terraform.tfstate'
+    path = terraform_root(ROOT) / 'terraform.tfstate'
+    from local_runtime import checked_tree
+    checked_tree(path, ROOT.resolve())
     state = json.loads(path.read_text()) if path.exists() else {}
     result = {}
     for resource in state.get('resources', []):
@@ -219,55 +214,52 @@ def managed_ids():
         for instance in resource.get('instances', []):
             attributes = instance.get('attributes', {})
             name = attributes.get('name')
-            if name and not name.startswith(PREFIX):
+            if name and name != PREFIX and not name.startswith(PREFIX + '-'):
                 raise ValueError('Foreign resource in DZ06 state')
             result[(resource['type'], resource['name'], str(instance.get('index_key', '')))] = attributes['id']
     return result
 
 
-def cleanup():
-    state_path = ROOT / 'terraform-selectel/terraform.tfstate'
+def cleanup(clean_local=True):
+    from test_cycle import require_access
+    require_access(sys.modules[__name__], cleanup=True)
+    config = auth_config()
+    from local_runtime import validate_state
+    validate_state(ROOT, config, PREFIX)
+    pools.phase(ROOT, 'cleanup_pending')
+    state_path = terraform_root(ROOT) / 'terraform.tfstate'
     before = json.loads(state_path.read_text()) if state_path.exists() else {}
-    own_fips = {i['attributes']['id'] for r in before.get('resources', [])
-                if r.get('mode') == 'managed' and r['type'] == 'openstack_networking_floatingip_v2'
-                for i in r.get('instances', []) if i.get('attributes', {}).get('id')}
+    own_fips = SelectelAdapter.cleanup_ids(before)
     scope_path = LOCAL / 'cleanup-fips.json'
     region = auth_config()['region']
+    ownership = json.loads((LOCAL / 'context.json').read_text()) if (LOCAL / 'context.json').exists() else None
     if own_fips:
-        save(scope_path, {'region': region, 'project_id': auth_config()['project_id'], 'ids': sorted(own_fips)})
+        save(scope_path, {**ownership, 'ids': sorted(own_fips)})
     elif scope_path.exists():
         scope = json.loads(scope_path.read_text())
-        if scope['region'] == region and scope.get('project_id') == auth_config()['project_id']:
-            own_fips = set(scope['ids'])
-    plan = checked_plan(True)
-    tf('apply', '-input=false', '-no-color', str(plan))
-    state = json.loads(tf('show', '-json', capture=True))
+        validate_binding(scope, ownership)
+        own_fips = set(scope['ids'])
+    if own_fips or any(r.get('mode') == 'managed' and r.get('instances') for r in before.get('resources', [])) or (terraform_root(ROOT) / 'terraform.tfvars.json').exists():
+        plan = checked_plan(True)
+        tf('apply', '-input=false', '-no-color', str(plan))
+        state = json.loads(tf('show', '-json', capture=True))
+    else:
+        state = {}
     managed = [r for r in state.get('values', {}).get('root_module', {}).get('resources', []) if r.get('mode') == 'managed']
     if managed:
         raise RuntimeError('DZ06 resources remain in state')
     cloud = Cloud()
-    checks = {'compute': ['/servers/detail', '/os-server-groups'], 'volumev3': ['/volumes/detail'],
-              'network': ['/v2.0/networks', '/v2.0/subnets', '/v2.0/routers', '/v2.0/ports', '/v2.0/security-groups']}
-    deadline = time.monotonic() + 90
-    while True:
-        remaining = []
-        for service, paths in checks.items():
-            for path in paths:
-                data = cloud.get(service, path)
-                for items in data.values():
-                    if isinstance(items, list):
-                        remaining += [x.get('name') for x in items if isinstance(x, dict) and x.get('name', '').startswith(PREFIX)]
-        floating = cloud.get('network', '/v2.0/floatingips')['floatingips']
-        remaining_fips = sum(f['id'] in own_fips for f in floating)
-        if not remaining and not remaining_fips or time.monotonic() >= deadline:
-            break
-        time.sleep(3)
+    from selectel_adapter import audit_cleanup
+    remaining, remaining_fips = audit_cleanup(cloud, PREFIX, own_fips)
     save(ROOT / 'docs/cleanup-result.json', {'region': cloud.config['region'],
          'managed_remaining': len(managed), 'named_remaining': remaining,
          'own_floating_ips_remaining': remaining_fips, 'success': not remaining and not remaining_fips})
     if remaining or remaining_fips:
         raise RuntimeError('Named DZ06 resources remain outside state')
-    (LOCAL / 'operator.json').unlink(missing_ok=True)
+    pools.phase(ROOT, 'destroyed')
+    if clean_local:
+        from local_runtime import cleanup_runtime
+        cleanup_runtime(ROOT)
     print('DZ06 cleanup verified; other labs untouched', flush=True)
 
 
@@ -277,21 +269,7 @@ def trust(lab):
     cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
     lines = []
     for name, server_id in lab['server_ids'].items():
-        server = cloud.get('compute', '/servers/' + server_id)['server']
-        if server['name'] != PREFIX + '-' + name:
-            raise ValueError('Foreign instance UUID')
-        key = cache.get(server_id)
-        if key is None:
-            for attempt in range(60):
-                console = cloud.get('compute', '/servers/' + server_id + '/action', {'os-getConsoleOutput': {'length': 1000}})['output']
-                section = re.search(r'BEGIN SSH HOST KEY KEYS.*?END SSH HOST KEY KEYS', console, re.S)
-                match = re.search(r'ssh-ed25519\s+([A-Za-z0-9+/=]+)', section.group()) if section else None
-                if match:
-                    key = match[1]
-                    break
-                time.sleep(3)
-            else:
-                raise RuntimeError('No trusted SSH key for ' + name)
+        key = cloud.ssh_host_key(name, server_id, PREFIX, cache.get(server_id))
         paramiko.Ed25519Key(data=base64.b64decode(key))
         cache[server_id] = key
         save(cache_path, cache)
@@ -308,6 +286,15 @@ def connect(lab, name='app', front=None):
     sock = front.get_transport().open_channel('direct-tcpip', (host, 22), ('127.0.0.1', 0)) if front else None
     client.connect(host, port=22, username='otus', key_filename=str(LOCAL / 'otus_dz06'), sock=sock,
                    look_for_keys=False, allow_agent=False, timeout=20, banner_timeout=30)
+    if name == 'app' and front is None:
+        from operator_network import verify_ssh_source
+        try:
+            _, output, _ = client.exec_command('printf "%s" "$SSH_CONNECTION"', timeout=20)
+            variables = json.loads((terraform_root(ROOT) / 'terraform.tfvars.json').read_text())
+            verify_ssh_source(output.read().decode('ascii').strip(), variables['admin_cidrs'])
+        except Exception:
+            client.close()
+            raise
     return client
 
 
@@ -347,74 +334,35 @@ def put(client, path, content, mode=0o600):
         sftp.chmod(path, mode)
 
 
+def normalized_archive_entry(info):
+    info.mode = 0o755 if info.isdir() else 0o644
+    return info
+
+
 def upload_tree(client):
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode='w:gz') as archive:
-        for folder in ['app', 'config', 'scripts/remote']:
+        for folder in ['app', 'config', 'ansible', 'scripts/remote']:
             for path in (ROOT / folder).rglob('*'):
                 if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc':
-                    archive.add(path, arcname=path.relative_to(ROOT).as_posix())
-    put(client, '/home/otus/dz06.tar.gz', buffer.getvalue())
-    remote(client, 'mkdir -p /home/otus/dz06 && tar xzf /home/otus/dz06.tar.gz -C /home/otus/dz06', 'upload')
+                    archive.add(path, arcname=path.relative_to(ROOT).as_posix(), recursive=False,
+                                filter=lambda info: normalized_archive_entry(info))
+    target = STACK['paths']['remote_root']
+    put(client, target + '.tar.gz', buffer.getvalue())
+    remote(client, 'mkdir -p ' + shlex.quote(target) + ' && tar xzf ' + shlex.quote(target + '.tar.gz') + ' -C ' + shlex.quote(target), 'upload')
 
 
 def check_placement(lab):
-    cloud = Cloud()
-    ids = {lab['server_ids'][name] for name in ['db1', 'db2', 'db3']}
-    groups = cloud.get('compute', '/os-server-groups')['server_groups']
-    groups = [g for g in groups if g.get('name') == PREFIX + '-db' and set(g.get('members', [])) == ids]
-    if len(groups) != 1 or groups[0].get('policies') != ['anti-affinity']:
-        raise RuntimeError('Database nodes must belong to their hard anti-affinity group')
-    hosts = []
-    for name in ['db1', 'db2', 'db3']:
-        server = cloud.get('compute', '/servers/' + lab['server_ids'][name])['server']
-        if server['name'] != PREFIX + '-' + name or server['status'] != 'ACTIVE':
-            raise RuntimeError('Unexpected database node identity or state')
-        hosts.append(server.get('hostId'))
-    if not all(hosts) or len(set(hosts)) != 3:
-        raise RuntimeError('Three distinct database host IDs required')
-    save(ROOT / 'docs/placement-result.json', {'success': True, 'region': auth_config()['region'],
-         'policy': 'anti-affinity', 'database_nodes': 3, 'distinct_hosts': 3})
+    import verification
+    return verification.check_placement(sys.modules[__name__], lab)
 
 
-def configure():
-    from render import node_config
-    lab = lab_output()
-    check_placement(lab)
-    trust(lab)
-    try:
-        with connect(lab):
-            pass
-    except (OSError, paramiko.SSHException):
-        discover_route(lab)
-    passwords = json.loads((LOCAL / 'secrets.json').read_text())
-    with connect(lab) as app:
-        remote(app, 'sudo python3 -', 'cloud-init-app', stdin=(ROOT / 'scripts/remote/check_cloud_init.py').read_text())
-        upload_tree(app)
-        put(app, '/home/otus/dz06/settings.json', json.dumps({'lab': lab, 'passwords': passwords}))
-        def install(name):
-            with connect(lab, name, app) as db:
-                remote(db, 'sudo python3 -', 'cloud-init-' + name, stdin=(ROOT / 'scripts/remote/check_cloud_init.py').read_text())
-                upload_tree(db)
-                put(db, '/home/otus/dz06/node.json', json.dumps(node_config(name, lab, passwords)))
-                remote(db, 'sudo python3 /home/otus/dz06/scripts/remote/database.py install', 'install-' + name)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            list(executor.map(install, ['db1', 'db2', 'db3']))
-        # Start all etcd members only after all peer configs are present.
-        for name in ['db1', 'db2', 'db3']:
-            with connect(lab, name, app) as db:
-                remote(db, 'sudo systemctl enable etcd && sudo systemctl start --no-block etcd', 'etcd-' + name)
-        for name in ['db1', 'db2', 'db3']:
-            with connect(lab, name, app) as db:
-                remote(db, 'sudo systemctl enable --now patroni', 'patroni-' + name)
-        remote(app, 'sudo python3 /home/otus/dz06/scripts/remote/application.py', 'application')
-    print('Cluster and portal configured', flush=True)
+def configure(existing=False):
+    import configuration
+    return configuration.configure(sys.modules[__name__], existing)
 
 
 def discover_route(lab):
-    import hashlib
-    import hmac
-    import ipaddress
     import urllib.request
     key = json.loads((LOCAL / 'secrets.json').read_text())['api'].encode()
     nonce = secrets.token_hex(24)
@@ -422,119 +370,122 @@ def discover_route(lab):
         try:
             with urllib.request.urlopen(lab['site_url'] + '/?nonce=' + nonce, timeout=3) as response:
                 result = json.load(response)
-            expected = hmac.new(key, (nonce + '|' + result['ip']).encode(), hashlib.sha256).hexdigest()
-            if result['nonce'] != nonce or not hmac.compare_digest(expected, result['signature']):
-                raise ValueError('Untrusted route probe response')
-            address = ipaddress.IPv4Address(result['ip'])
-            if not address.is_global:
-                raise ValueError('Operator source must be a global IPv4')
+            from operator_network import signed_route_cidr
+            cidr = signed_route_cidr(result, nonce, key)
             break
         except (OSError, json.JSONDecodeError):
             time.sleep(2)
     else:
         raise RuntimeError('Direct HTTP route to application VM unavailable')
-    path = ROOT / 'terraform-selectel/terraform.tfvars.json'
+    path = terraform_root(ROOT) / 'terraform.tfvars.json'
     variables = json.loads(path.read_text())
-    cidr = str(address) + '/32'
     if cidr not in variables['admin_cidrs']:
         variables['admin_cidrs'].append(cidr)
         save(path, variables)
-        plan = checked_plan()
+        plan = checked_plan(access_cidr=cidr)
+        pools.phase(ROOT, 'creating')
         tf('apply', '-input=false', '-no-color', str(plan))
+    save(LOCAL / 'operator-network.json', {'tcp_http_cidr': cidr, 'admin_cidrs': variables['admin_cidrs']})
     print('Direct route operator IPv4 verified; SSH remains restricted to /32 entries', flush=True)
 
 
 def verify(failover=False):
-    lab = lab_output()
-    run_id = uuid.uuid4().hex
-    with connect(lab) as app:
-        command = 'sudo python3 /home/otus/dz06/scripts/remote/verify.py '
-        raw = remote(app, command + 'baseline ' + run_id, 'verify-baseline')
-        baseline = json.loads(raw)
-        save(ROOT / 'docs/verification.json', baseline)
-        if not failover:
-            return {'baseline': baseline}
-        leader = baseline['leader']
-        server_id = lab['server_ids'][leader]
-        cloud = Cloud()
-        server = cloud.get('compute', '/servers/' + server_id)['server']
-        if server['name'] != PREFIX + '-' + leader:
-            raise ValueError('Refusing foreign instance shutdown')
-        try:
-            cloud.get('compute', '/servers/' + server_id + '/action', {'os-stop': None})
-            for _ in range(60):
-                if cloud.get('compute', '/servers/' + server_id)['server']['status'] == 'SHUTOFF':
-                    break
-                time.sleep(2)
-            else:
-                raise RuntimeError('Leader shutdown unconfirmed')
-            raw = remote(app, command + 'failover ' + run_id + ' ' + leader, 'verify-failover')
-            result = json.loads(raw)
-            result['stopped_node'] = leader
-            result['nova_shutdown_confirmed'] = True
-            save(ROOT / 'docs/failover-result.json', result)
-        finally:
-            cloud.get('compute', '/servers/' + server_id + '/action', {'os-start': None})
-        raw = remote(app, command + 'recovered ' + run_id, 'verify-recovered')
-        recovery = json.loads(raw)
-        save(ROOT / 'docs/recovery-result.json', recovery)
-    print('Failover, committed data, HTTP and recovered replica verified', flush=True)
-    return {'run_id': run_id, 'baseline': baseline, 'failover': result, 'recovery': recovery}
+    import verification
+    return verification.verify(sys.modules[__name__], failover)
 
 
-def deploy():
+def deploy(*, initial_creation=False):
+    from test_cycle import require_access
+    require_access(sys.modules[__name__])
     existing = managed_ids()
+    saved = pools.selected(ROOT)
+    configured = bool(existing) and ((LOCAL / 'configured.json').exists()
+        or (LOCAL / 'expansion-pending.json').exists() or not saved or saved.get('phase') == 'active')
     try:
-        preflight()
-        plan = checked_plan()
-        tf('apply', '-input=false', '-no-color', str(plan))
-        configure()
-    except BaseException:
+        import infrastructure
+        import verification
+        desired = desired_topology()
+        configured_path = LOCAL / 'configured.json'
+        if configured_path.exists():
+            saved_config = json.loads(configured_path.read_text())
+            if saved_config.get('stack_sha256', stack_config.digest(STACK)) != stack_config.digest(STACK):
+                raise ValueError('Changing stack settings on an existing stand requires a separate migration')
+        snapshot = None
+        if configured:
+            previous = lab_output()
+            topology.validate_extension(topology.from_lab(previous), desired)
+            snapshot = verification.snapshot(sys.modules[__name__], previous)
+            infrastructure.check_replication_capacity(snapshot, len(desired['nodes']) - 1)
+        added = None
+        if snapshot:
+            added = set(desired['nodes']) - set(snapshot['server_ids'])
+        infrastructure.apply(sys.modules[__name__], desired, allowed_new_nodes=added)
+        topology.assert_preserved(existing, managed_ids())
+        configure(existing=configured)
+        save(LOCAL / 'configured.json', {'portal_configured': True, 'stack_sha256': stack_config.digest(STACK)})
+        if snapshot:
+            verification.expansion(sys.modules[__name__], snapshot)
+        pools.phase(ROOT, 'active')
+    except BaseException as error:
+        if (not existing and not configured and (initial_creation or _TEST_CYCLE_ID)
+                and not (LOCAL / 'configured.json').exists() and not (LOCAL / 'expansion-pending.json').exists()
+                and (isinstance(error, BootstrapNetworkError)
+                     or pools.scheduler_unavailable(error, ROOT, Cloud, PREFIX))):
+            reason = 'guest_IPv4_bootstrap_failed' if isinstance(error, BootstrapNetworkError) else 'scheduler_capacity_unavailable'
+            save(ROOT / 'docs/capacity-result.json', {'reason': reason,
+                'region': placement()['region'], 'availability_zone': placement()['availability_zone']})
+            print('Initial placement failed: ' + reason + '; cleaning before the next candidate', flush=True)
+            cleanup(clean_local=False)
+            raise pools.CapacityRetry() from error
         diagnostics()
-        if not existing:
-            cleanup()
-        else:
-            print('Existing DZ06 resources preserved after deployment error', flush=True)
+        print('DZ06 state, resources and recovery files preserved after deployment error', flush=True)
         raise
 
 
+
+def select_candidate(choice):
+    global _AUTH_CONFIG
+    config = load_credentials()
+    pools.select(ROOT, choice, config['project_id'], 'context.json')
+    _AUTH_CONFIG = None
+
+
+def deployment_candidates():
+    policy = json.loads((ROOT / 'config/placement.json').read_text())
+    return pools.candidates(policy, load_credentials())
+
+
+def prepare_selected():
+    return pools.run_candidates(deployment_candidates(), select_candidate, prepare, lambda: None)
+
+
+def deploy_selected():
+    from test_cycle import require_access
+    require_access(sys.modules[__name__])
+    if managed_ids() or (pools.selected(ROOT) and (terraform_root(ROOT) / 'terraform.tfvars.json').exists()):
+        deploy()  # Keep the saved placement for repeat configuration.
+        return
+    if (LOCAL / 'configured.json').exists() or (LOCAL / 'expansion-pending.json').exists():
+        raise ValueError('Existing configuration requires recovery; refusing initial placement retry')
+    pools.run_candidates(deployment_candidates(), select_candidate, prepare, lambda: deploy(initial_creation=True))
+
+
 def regression():
-    try:
-        deploy()
-        before = managed_ids()
-        first = verify(True)
-        deploy()
-        after = managed_ids()
-        if before != after:
-            raise RuntimeError('Redeployment replaced DZ06 resource identities')
-        # Re-run the first run's recovery check after configuration, including its exact rows.
-        with connect(lab_output()) as app:
-            raw = remote(app, 'sudo python3 /home/otus/dz06/scripts/remote/verify.py recovered ' + first['run_id'], 'verify-redeployment-data')
-            data_check = json.loads(raw)
-        second = verify(True)
-        records = [r[stage]['new_record'] for r in [first, second] for stage in ['baseline', 'failover', 'recovery']]
-        records.append(data_check['new_record'])
-        if first['run_id'] == second['run_id'] or any(len({r[key] for r in records}) != 7 for key in ['id', 'slug', 'body']):
-            raise RuntimeError('Failover runs reused verification records')
-        save(ROOT / 'docs/redeployment-result.json', {
-            'success': True, 'resource_ids_preserved': True, 'original_records_preserved': True,
-            'repeat_configuration_completed': True, 'existing_portal_without_route_probe': True,
-            'data_check': data_check})
-        save(ROOT / 'docs/failover-runs.json', {'success': True, 'distinct_failover_records': 6,
-             'redeployment_record_is_distinct': True, 'runs': [first, second]})
-    finally:
-        cleanup()
+    from test_cycle import run
+    return run(sys.modules[__name__])
 
 
 def diagnostics():
-    """Best-effort evidence before destroying a failed configured stand."""
-    if not (RUN / 'cloud-init-app.log').exists():
-        return
+    """Best-effort evidence; failures preserve resources and recovery files."""
     try:
         lab = lab_output()
+        from network_diagnostics import console_evidence
+        console_evidence(sys.modules[__name__], lab)
         with connect(lab) as app:
+            remote(app, 'sudo python3 -', 'diagnostics-network-app',
+                   stdin=(ROOT / 'scripts/remote/network_diagnostics.py').read_text())
             remote(app, 'sudo journalctl -u haproxy -u otus-dz06 -u nginx -n 100 --no-pager', 'diagnostics-app')
-            for name in ['db1', 'db2', 'db3']:
+            for name in topology.database_names(lab):
                 try:
                     with connect(lab, name, app) as db:
                         remote(db, 'sudo journalctl -u patroni -u etcd -n 150 --no-pager', 'diagnostics-' + name)
@@ -546,15 +497,24 @@ def diagnostics():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['prepare', 'preflight', 'deploy', 'configure', 'verify', 'failover', 'destroy', 'cleanup', 'test'])
+    parser.add_argument('action', choices=['prepare', 'preflight', 'deploy', 'configure', 'verify', 'failover', 'destroy', 'cleanup', 'test', 'test-cycle', 'open'])
     args = parser.parse_args()
+    from test_cycle import require_access
+    require_access(sys.modules[__name__], cleanup=args.action in ['destroy', 'cleanup'])
+    if args.action in ['deploy', 'configure', 'verify', 'failover']:
+        from operator_network import check_saved_access
+        check_saved_access(terraform_root(ROOT) / 'terraform.tfvars.json',
+                           placement()['operator_ip_services'], placement().get('admin_cidrs', []))
     if args.action == 'prepare':
-        prepare()
+        prepare_selected()
     elif args.action == 'preflight':
         preflight()
+    elif args.action == 'open':
+        from local_runtime import open_portal
+        open_portal(ROOT, 6)
     elif args.action == 'deploy':
-        deploy()
-    elif args.action == 'test':
+        deploy_selected()
+    elif args.action in ['test', 'test-cycle']:
         regression()
     elif args.action == 'configure':
         configure()

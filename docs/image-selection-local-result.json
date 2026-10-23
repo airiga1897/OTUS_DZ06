@@ -1,0 +1,9 @@
+{
+  "scope": "local_mock_selection_tests",
+  "script_tests_passed": 104,
+  "terraform_mock_scenarios_passed": 3,
+  "excluded_pool_not_restored_by_auto": true,
+  "image_content_checksum_required_by_policy": true,
+  "cloud_deployment_performed": false,
+  "published": false
+}

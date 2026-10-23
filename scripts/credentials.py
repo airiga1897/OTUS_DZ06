@@ -1,34 +1,16 @@
-"""One credential schema; environment by default, explicit private file for development."""
+"""One credential schema; Python receives credentials only from the environment."""
 import json
 import os
 from pathlib import Path
-import subprocess
 from typing import Any
 
 
 def auth_settings() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[1] / 'config/selectel-auth.json'
-    return json.loads(path.read_text(encoding='utf-8-sig'))
-
-
-def assert_private_file(path: Path) -> None:
-    if os.name != 'nt':
-        if path.stat().st_uid != os.getuid() or path.stat().st_mode & 0o077:
-            raise ValueError('Development credentials must be accessible only to their owner')
-        return
-    command = "$a=Get-Acl -LiteralPath $env:OTUS_PRIVATE_FILE_CHECK -ErrorAction Stop; " \
-              "$s=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; " \
-              "if($a.Access | Where-Object {$_.AccessControlType -eq 'Allow' -and " \
-              "$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -ne $s}){exit 1}"
-    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command],
-                            env={**os.environ, 'OTUS_PRIVATE_FILE_CHECK': str(path.resolve())}, capture_output=True)
-    if result.returncode:
-        raise ValueError('Development credentials must be accessible only to the current user')
-
-
-def read_private_file(path: Path) -> dict[str, str]:
-    assert_private_file(path)
-    return json.loads(path.read_text(encoding='utf-8-sig'))
+    settings = json.loads(path.read_text(encoding='utf-8-sig'))
+    from pool_selection import policy
+    settings['region'] = policy(path.parents[1], 'placement.json', 'context.json')['region']
+    return settings
 
 
 def config_from_env() -> dict[str, str]:
@@ -39,8 +21,7 @@ def config_from_env() -> dict[str, str]:
 
 def load_credentials() -> dict[str, str]:
     settings = auth_settings()
-    selected = os.environ.get('OTUS_SELECTEL_AUTH')
-    supplied = read_private_file(Path(selected)) if selected else config_from_env()
+    supplied = config_from_env()
     config = {**{k: settings[k] for k in ['auth_url', 'region']}, **supplied}
     if any(not isinstance(config.get(k), str) or not config[k].strip() for k in settings['fields']):
         raise ValueError('Incomplete Selectel credentials; run scripts/env.ps1')

@@ -1,0 +1,64 @@
+{
+  "scope": "real_Selectel_after_IPv4_bootstrap_change",
+  "root_cause_confirmed": false,
+  "failure_stage": "TCP_connect_before_SSH_banner_and_authentication",
+  "confirmed": {
+    "signed_http_path_to_own_application": false,
+    "cloud_ingress_rules_and_private_port_filtering": true,
+    "network_router_zone_check": true,
+    "python_can_receive_external_SSH_banner_on_port_22": true,
+    "temporary_DZ06_resources_deleted": true,
+    "guest_ssh_service_started": true,
+    "floating_IP_active_and_bound_to_app": true,
+    "guest_IPv4_absent_before_user_Netplan": true,
+    "guest_expected_IPv4_missing": true
+  },
+  "comparison": {
+    "same": [
+      "private_VM_addresses",
+      "application_floating_IP",
+      "database_jump_host",
+      "SSH_22",
+      "operator_IPv4_32_rules",
+      "trusted_Nova_console_host_keys",
+      "signed_HTTP_route_probe"
+    ],
+    "DZ06_only": [
+      "explicit_network_router_zone_hints",
+      "read_only_guest_IPv4_bootstrap_check"
+    ],
+    "DZ05_success_evidence_pools": [
+      "ru-3",
+      "ru-9"
+    ],
+    "DZ06_failed_connectivity_pool": "ru-7",
+    "same_pool_equivalence_proven": false
+  },
+  "code_defects": [
+    "HTTP_probe_does_not_record_local_SSH_listener_or_effective_service_state"
+  ],
+  "not_observed_before_cleanup": [
+    "actual_SSH_TCP_source_IP",
+    "guest_TCP_22_listener_and_effective_config",
+    "guest_SYN_arrival_and_SYN_ACK_return"
+  ],
+  "remaining_hypotheses": [
+    "guest_network_configuration_not_activated",
+    "DHCP_delivery_or_client_failure"
+  ],
+  "resources_created": true,
+  "other_projects_modified": false,
+  "published": false,
+  "references": [
+    "https://discourse.ubuntu.com/t/sshd-now-uses-socket-based-activation-ubuntu-22-10-and-later/30189/1",
+    "https://github.com/canonical/cloud-init/blob/main/cloudinit/util.py"
+  ],
+  "resolved_code_defects": [
+    "custom_SSH_activation_switch_removed",
+    "cloud_init_commands_now_fail_fast",
+    "custom_static_Netplan_override_removed",
+    "DHCP_explicitly_enabled",
+    "guest_IPv4_and_gateway_verified_before_services"
+  ],
+  "temporary_resources_removed": true
+}

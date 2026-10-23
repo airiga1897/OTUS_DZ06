@@ -1,6 +1,11 @@
 {
-  "region": "ru-7",
-  "availability_zone": "ru-7a",
+  "region": "ru-9",
+  "availability_zone": "ru-9a",
   "quotas_sufficient": true,
-  "subnet_no_conflict": true
+  "subnet_no_conflict": true,
+  "capabilities": {
+    "network_isolation": "supported",
+    "placement_hints": "supported",
+    "hard_anti_affinity": "supported"
+  }
 }

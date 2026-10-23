@@ -1,0 +1,23 @@
+{
+  "region": "ru-9",
+  "zone": "ru-9a",
+  "test_cycle_run_id": "c3381df7d7bf4b0fbb330e03dca05514",
+  "success": true,
+  "initial_deploy": true,
+  "repeat_deploy": true,
+  "added_node": "db4",
+  "repeat_expanded_deploy": true,
+  "existing_IDs_data_and_media_preserved": true,
+  "stopped_leader": "db2",
+  "new_leader": "db1",
+  "failover_verified": true,
+  "replicas_after_recovery": 4,
+  "application_read_and_write_verified": true,
+  "state_and_API_cleanup_verified": true,
+  "fixture_fields_exact": true,
+  "published_course_articles": 6,
+  "published_verification_articles": 0,
+  "public_test_article_links": 0,
+  "default_test_cycle_adds_replica": false,
+  "shortened_cycle_verified_locally": true
+}

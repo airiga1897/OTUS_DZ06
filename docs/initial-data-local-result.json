@@ -1,0 +1,24 @@
+{
+  "scope": "local_only",
+  "fixture": "app/knowledge/fixtures/initial_data.json",
+  "article_primary_keys": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "django_tests_passed": 12,
+  "script_tests_passed": 33,
+  "powershell_credentials_tests_passed": true,
+  "all_article_fields_checked": true,
+  "next_ids_checked_on_sqlite": true,
+  "permissions_and_relations_preserved": true,
+  "repeated_load_preserves_user_data": true,
+  "failed_load_is_atomic": true,
+  "existing_media_preserved": true,
+  "postgresql_sequence_reset_sql_checked_without_connection": true,
+  "postgresql_cluster_live_test_performed": false,
+  "existing_database_transfer_confirmed": false
+}

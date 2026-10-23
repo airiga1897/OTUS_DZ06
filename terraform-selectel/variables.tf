@@ -1,4 +1,10 @@
 variable "region" { type = string }
+variable "nodes" {
+  type = map(object({ host = number, role = string }))
+}
+variable "etcd_members" {
+  type = list(string)
+}
 variable "availability_zone" { type = string }
 variable "image_id" { type = string }
 variable "volume_type" { type = string }
@@ -8,16 +14,14 @@ variable "external_network_name" {
   default = "external-network"
 }
 variable "name_prefix" {
-  type    = string
-  default = "otus-dz06"
+  type = string
   validation {
-    condition     = startswith(var.name_prefix, "otus-dz06")
-    error_message = "Resources must use the DZ06 prefix."
+    condition     = can(regex("^[a-z][a-z0-9-]+$", var.name_prefix))
+    error_message = "Use a lowercase resource namespace."
   }
 }
 variable "subnet_cidr" {
-  type    = string
-  default = "10.66.0.0/24"
+  type = string
 }
 variable "admin_cidrs" {
   type = list(string)

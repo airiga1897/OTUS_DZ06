@@ -1,0 +1,14 @@
+{
+  "scope": "local_mock_checks_only",
+  "script_tests_passed": 88,
+  "first_deploy_retry_after_state_and_api_cleanup": true,
+  "cleanup_failure_blocks_next_candidate": true,
+  "selectel_shelving_retry_fault_recognized": true,
+  "generic_retry_fault_not_classified_as_capacity": true,
+  "repeated_deploy_and_expansion_preserve_stand": true,
+  "partial_apply_destroy_ownership_verified": true,
+  "conflicting_or_missing_metadata_rejected": true,
+  "real_context_state_tfvars_unchanged": true,
+  "cloud_commands_executed": false,
+  "published": false
+}

@@ -1,0 +1,18 @@
+global
+    log /dev/log local0
+    user haproxy
+    group haproxy
+    daemon
+defaults
+    mode tcp
+    timeout connect 3s
+    timeout client 60s
+    timeout server 60s
+listen postgres
+    bind 127.0.0.1:{{ stack.postgresql.port }}
+    option httpchk GET /primary
+    http-check expect status 200
+    default-server inter 2s fall 2 rise 2 on-marked-down shutdown-sessions
+{% for name in groups['database'] | sort %}
+    server {{ name }} {{ hostvars[name].ansible_host }}:{{ stack.postgresql.port }} check port {{ stack.patroni.api_port }}
+{% endfor %}

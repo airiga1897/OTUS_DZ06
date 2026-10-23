@@ -1,0 +1,29 @@
+{
+  "scope": "real_Selectel_verified_image_bootstrap",
+  "region": "ru-9",
+  "source": "owned_VM_console",
+  "nodes": {
+    "app": {
+      "private_IPv4_and_gateway_bootstrap_verified": true,
+      "bootstrap_IPv4_failure": false
+    },
+    "db1": {
+      "private_IPv4_and_gateway_bootstrap_verified": true,
+      "bootstrap_IPv4_failure": false
+    },
+    "db2": {
+      "private_IPv4_and_gateway_bootstrap_verified": true,
+      "bootstrap_IPv4_failure": false
+    },
+    "db3": {
+      "private_IPv4_and_gateway_bootstrap_verified": true,
+      "bootstrap_IPv4_failure": false
+    },
+    "db4": {
+      "private_IPv4_and_gateway_bootstrap_verified": true,
+      "bootstrap_IPv4_failure": false
+    }
+  },
+  "all_nodes_private_IPv4_and_gateway_verified": true,
+  "state_and_api_cleanup_verified": true
+}

@@ -1,0 +1,15 @@
+{
+  "scope": "local_mock_placement_retry_checks",
+  "script_tests_passed": 107,
+  "preferred_pool": "ru-9",
+  "preferred_segment": "ru-9a",
+  "reserve_pool": "ru-3",
+  "initial_scheduler_failure_retry": true,
+  "initial_confirmed_guest_IPv4_failure_retry": true,
+  "cleanup_state_and_API_audits_required": true,
+  "cleanup_error_stops_retry": true,
+  "repeat_deploy_and_expansion_preserve_existing_stand": true,
+  "unknown_SSH_timeout_not_classified_as_zone_failure": true,
+  "stale_evidence_not_used": true,
+  "new_cloud_retry_code_exercised_in_cloud": false
+}

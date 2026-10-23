@@ -1,0 +1,211 @@
+{
+  "scope": "read_only_Selectel_public_image_catalogs",
+  "regions": [
+    {
+      "region": "ru-1",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a65f500bebdbe1d5e52717448d2f4059",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "2f935b52673d2cef4eb6b2efe8ec9da0b51736660ce171d67e73dc41ceb74a1561a8d8c92cd3d1a527dccde5e66f480041e7803b2188ba8653019c06fb176638",
+          "size": 1537286656,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    },
+    {
+      "region": "ru-2",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a5224f2e4fa8656cfaad931dc91ca30d",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "a55b98034d0a3caf9e02bce9fb4ea30b8663b68db0e2366dbd1956fb72a8cd883a310a29e4e4d69349b83ed375719a20b836f0fc6f6f6fb5b87acc3ebc48ee60",
+          "size": 2005532672,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    },
+    {
+      "region": "ru-3",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a65f500bebdbe1d5e52717448d2f4059",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "2f935b52673d2cef4eb6b2efe8ec9da0b51736660ce171d67e73dc41ceb74a1561a8d8c92cd3d1a527dccde5e66f480041e7803b2188ba8653019c06fb176638",
+          "size": 1537286656,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    },
+    {
+      "region": "ru-4",
+      "status": "unknown",
+      "error_type": "CandidateUnavailable"
+    },
+    {
+      "region": "ru-5",
+      "status": "unknown",
+      "error_type": "CandidateUnavailable"
+    },
+    {
+      "region": "ru-6",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a65f500bebdbe1d5e52717448d2f4059",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "2f935b52673d2cef4eb6b2efe8ec9da0b51736660ce171d67e73dc41ceb74a1561a8d8c92cd3d1a527dccde5e66f480041e7803b2188ba8653019c06fb176638",
+          "size": 1537286656,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    },
+    {
+      "region": "ru-7",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a5224f2e4fa8656cfaad931dc91ca30d",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "a55b98034d0a3caf9e02bce9fb4ea30b8663b68db0e2366dbd1956fb72a8cd883a310a29e4e4d69349b83ed375719a20b836f0fc6f6f6fb5b87acc3ebc48ee60",
+          "size": 2005532672,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    },
+    {
+      "region": "ru-8",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a65f500bebdbe1d5e52717448d2f4059",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "2f935b52673d2cef4eb6b2efe8ec9da0b51736660ce171d67e73dc41ceb74a1561a8d8c92cd3d1a527dccde5e66f480041e7803b2188ba8653019c06fb176638",
+          "size": 1537286656,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    },
+    {
+      "region": "ru-9",
+      "status": "read",
+      "images": [
+        {
+          "name": "Ubuntu 24.04 LTS 64-bit",
+          "description": null,
+          "checksum": "a65f500bebdbe1d5e52717448d2f4059",
+          "os_hash_algo": "sha512",
+          "os_hash_value": "2f935b52673d2cef4eb6b2efe8ec9da0b51736660ce171d67e73dc41ceb74a1561a8d8c92cd3d1a527dccde5e66f480041e7803b2188ba8653019c06fb176638",
+          "size": 1537286656,
+          "disk_format": "raw",
+          "container_format": "bare",
+          "min_disk": 5,
+          "min_ram": 512,
+          "architecture": null,
+          "os_distro": "ubuntu",
+          "os_type": "linux",
+          "os_version": null,
+          "hw_disk_bus": "scsi",
+          "hw_vif_model": null,
+          "img_config_drive": null,
+          "hw_qemu_guest_agent": "yes"
+        }
+      ]
+    }
+  ],
+  "excluded_pool": "ru-7",
+  "exclusion_explicit_policy": true,
+  "reference_pools": [
+    "ru-3",
+    "ru-9"
+  ],
+  "reference_image_checksum": "a65f500bebdbe1d5e52717448d2f4059",
+  "cloud_resources_created": false,
+  "ru7_fields_differing_from_ru3": [
+    "checksum",
+    "os_hash_value",
+    "size"
+  ],
+  "ru7_text_description_differs": false
+}

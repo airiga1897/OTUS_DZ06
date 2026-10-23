@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "private_ports_filtered": true,
+  "ingress_rules_confirmed": true,
+  "database_public_ips_absent": true,
+  "network_router_zone_confirmed": true
+}

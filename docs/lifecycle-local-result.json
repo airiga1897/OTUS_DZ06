@@ -1,0 +1,16 @@
+{
+  "scope": "local_only_no_cloud_commands",
+  "management_tests": {"passed": 102, "cloud_api": "mock", "ssh": "mock"},
+  "django_tests": {"passed": 14, "database": "in_memory_SQLite"},
+  "terraform": {"fmt": "passed", "validate": "passed", "mock_provider_scenarios_passed": 3},
+  "verified_contracts": [
+    "repeat_deploy_applies_application_sources_dependencies_migrations_and_static",
+    "database_marker_prevents_reloading_fixture",
+    "failed_cycle_records_stage_error_and_successful_cleanup_independently",
+    "failed_cleanup_preserves_recovery_files_and_records_error_type",
+    "network_diagnostics_are_read_only_bounded_and_use_mock_console",
+    "raw_console_and_configuration_file_contents_are_not_published"
+  ],
+  "ansible_execution": "not_run; YAML_Jinja_and_mock_contract_checks_only",
+  "cloud_acceptance": "requires_separate_authorization_and_successful_full_cycle"
+}
