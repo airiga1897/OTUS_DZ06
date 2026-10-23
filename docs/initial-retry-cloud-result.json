@@ -1,0 +1,32 @@
+{
+  "scope": "real_Selectel_Terraform_and_API",
+  "success": false,
+  "initial_deploy_retry_verified": true,
+  "policy_override_only_in_memory": true,
+  "candidates": [
+    {
+      "region": "ru-9",
+      "zone": "ru-9a"
+    },
+    {
+      "region": "ru-7",
+      "zone": "ru-7a"
+    }
+  ],
+  "partial_attempt_cleanups": [
+    {
+      "region": "ru-9",
+      "zone": "ru-9a",
+      "partial_resources_existed": true,
+      "state_empty": true,
+      "api_empty": true,
+      "preparation_preserved": true,
+      "next_placement": {
+        "region": "ru-7",
+        "zone": "ru-7a"
+      }
+    }
+  ],
+  "initial_creation_calls": 2,
+  "repeat_deploy_calls": 0
+}

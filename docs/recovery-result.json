@@ -1,0 +1,60 @@
+{
+  "mode": "recovered",
+  "run_id": "4481fcc5827e4249a6577e1cf57d4698",
+  "leader": "db3",
+  "members": {
+    "db1": {
+      "role": "replica",
+      "state": "running",
+      "timeline": 2,
+      "server_version": 160015
+    },
+    "db2": {
+      "role": "replica",
+      "state": "running",
+      "timeline": 2,
+      "server_version": 160015
+    },
+    "db3": {
+      "role": "primary",
+      "state": "running",
+      "timeline": 2,
+      "server_version": 160015
+    }
+  },
+  "sql_and_http": true,
+  "application_view_write": true,
+  "media_preserved": true,
+  "committed_record_preserved": true,
+  "new_write_succeeded": true,
+  "new_record": {
+    "id": 41,
+    "slug": "recovered-60e3f46ed8a540ff946ad2c006cd383a",
+    "body": "committed-e9ac0539d1b34eed91d3433f5a57d228"
+  },
+  "preserved_records": [
+    {
+      "id": 7,
+      "slug": "baseline-1008cba65f344be4a3e6bb11ccee0020",
+      "body": "committed-6202b82a0b4b4eadacf7d407dffc7841"
+    },
+    {
+      "id": 40,
+      "slug": "failover-b2ef8b747d704b61ab336236e1785854",
+      "body": "committed-81cca6e13a344a5bb6afd37e767a7596"
+    }
+  ],
+  "replica_records_verified": true,
+  "failover_record_available": true,
+  "replication_capacity": {
+    "senders": 10,
+    "slots": 10
+  },
+  "initial_data": {
+    "status": "loaded",
+    "loaded_now": true,
+    "articles": 6,
+    "fixture_sha256": "2c8667310791cc00258660899a7623e1993f3b7edf430d0f0f73adc4dca1f0b5",
+    "source": "bundled_DZ04_materials_fixture"
+  }
+}

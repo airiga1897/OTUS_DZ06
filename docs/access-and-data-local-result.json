@@ -1,0 +1,46 @@
+{
+  "scope": "local_only",
+  "script_tests": 117,
+  "django_tests": 17,
+  "powershell_credentials_tests": "passed_powershell_7_and_windows_powershell_5_1",
+  "migration_model_consistency": "passed",
+  "operator_access": {
+    "two_independent_https_services_must_agree": true,
+    "unconfirmed_address_blocks_cli_before_cloud_actions": true,
+    "only_public_ipv4_32": true,
+    "existing_rules_preserved_on_route_mismatch": true,
+    "signed_probe_rejects_replay_tampering_and_private_addresses": true,
+    "route_plan_only_adds_confirmed_ssh_22_rule": true
+  },
+  "data": {
+    "fixture_article_primary_keys": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "fixture_fields_and_next_primary_key_verified": true,
+    "contenttypes_permissions_and_user_relations_verified": true,
+    "repeat_load_preserves_user_changes_and_media": true,
+    "new_probe_articles_are_unpublished": true,
+    "public_probe_detail_returns_404": true,
+    "legacy_probe_migration_preserves_ids_and_content": true,
+    "legacy_migration_preserves_course_and_other_user_articles": true,
+    "legacy_visibility_change_does_not_break_data_manifest": true
+  },
+  "cloud_commands_executed": false,
+  "cloud_database_modified": false,
+  "other_homework_modified": false,
+  "github_published": false,
+  "review_links": {
+    "develop_links": true,
+    "explicit_pr_links_preserved": true,
+    "database_not_rewritten": true
+  },
+  "placement_disk_priority": [
+    "basicssd",
+    "universal"
+  ]
+}

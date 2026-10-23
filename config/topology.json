@@ -1,0 +1,9 @@
+{
+  "nodes": {
+    "app": {"host": 10, "role": "app"},
+    "db1": {"host": 21, "role": "db"},
+    "db2": {"host": 22, "role": "db"},
+    "db3": {"host": 23, "role": "db"}
+  },
+  "etcd_members": ["db1", "db2", "db3"]
+}

@@ -1,0 +1,311 @@
+{
+  "success": true,
+  "distinct_failover_records": 6,
+  "redeployment_record_is_distinct": true,
+  "runs": [
+    {
+      "run_id": "bb662953e60a4a84b53dcbc462500f22",
+      "baseline": {
+        "mode": "baseline",
+        "run_id": "bb662953e60a4a84b53dcbc462500f22",
+        "leader": "db1",
+        "members": {
+          "db1": {
+            "role": "primary",
+            "state": "running",
+            "timeline": 1,
+            "server_version": 160015
+          },
+          "db2": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 1,
+            "server_version": 160015
+          },
+          "db3": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 1,
+            "server_version": 160015
+          }
+        },
+        "sql_and_http": true,
+        "committed_record_preserved": true,
+        "new_write_succeeded": true,
+        "new_record": {
+          "id": 5,
+          "slug": "baseline-461965cdbfda4495a91ac49ccca2c7e1",
+          "body": "committed-e321daa88a4b4816856d597f36550071"
+        },
+        "preserved_records": [],
+        "replica_records_verified": false,
+        "migration": {
+          "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+          "historical_dump_available": false,
+          "method": "pg_dump -Fc / pg_restore",
+          "articles": 4,
+          "full_article_rows_equal": true,
+          "inactive_user_preserved": true,
+          "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+        }
+      },
+      "failover": {
+        "mode": "failover",
+        "run_id": "bb662953e60a4a84b53dcbc462500f22",
+        "leader": "db2",
+        "members": {
+          "db1": {
+            "state": "unreachable"
+          },
+          "db2": {
+            "role": "primary",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          },
+          "db3": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          }
+        },
+        "sql_and_http": true,
+        "committed_record_preserved": true,
+        "new_write_succeeded": true,
+        "new_record": {
+          "id": 38,
+          "slug": "failover-4ddea73412f84138af2dbbaaa64bdd86",
+          "body": "committed-c8cb3520e8924cc694c2d2d6a8b87927"
+        },
+        "preserved_records": [
+          {
+            "id": 5,
+            "slug": "baseline-461965cdbfda4495a91ac49ccca2c7e1",
+            "body": "committed-e321daa88a4b4816856d597f36550071"
+          }
+        ],
+        "replica_records_verified": false,
+        "migration": {
+          "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+          "historical_dump_available": false,
+          "method": "pg_dump -Fc / pg_restore",
+          "articles": 4,
+          "full_article_rows_equal": true,
+          "inactive_user_preserved": true,
+          "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+        },
+        "stopped_node": "db1",
+        "nova_shutdown_confirmed": true
+      },
+      "recovery": {
+        "mode": "recovered",
+        "run_id": "bb662953e60a4a84b53dcbc462500f22",
+        "leader": "db2",
+        "members": {
+          "db1": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          },
+          "db2": {
+            "role": "primary",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          },
+          "db3": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          }
+        },
+        "sql_and_http": true,
+        "committed_record_preserved": true,
+        "new_write_succeeded": true,
+        "new_record": {
+          "id": 39,
+          "slug": "recovered-32e43c2faf0a4aa6a7ce2a7d3893860a",
+          "body": "committed-b31e994824024e15b3a39b9c9b7c5cda"
+        },
+        "preserved_records": [
+          {
+            "id": 5,
+            "slug": "baseline-461965cdbfda4495a91ac49ccca2c7e1",
+            "body": "committed-e321daa88a4b4816856d597f36550071"
+          },
+          {
+            "id": 38,
+            "slug": "failover-4ddea73412f84138af2dbbaaa64bdd86",
+            "body": "committed-c8cb3520e8924cc694c2d2d6a8b87927"
+          }
+        ],
+        "replica_records_verified": true,
+        "migration": {
+          "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+          "historical_dump_available": false,
+          "method": "pg_dump -Fc / pg_restore",
+          "articles": 4,
+          "full_article_rows_equal": true,
+          "inactive_user_preserved": true,
+          "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+        }
+      }
+    },
+    {
+      "run_id": "c6ff49f4d7544ddeb429ec99af780adb",
+      "baseline": {
+        "mode": "baseline",
+        "run_id": "c6ff49f4d7544ddeb429ec99af780adb",
+        "leader": "db2",
+        "members": {
+          "db1": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          },
+          "db2": {
+            "role": "primary",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          },
+          "db3": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          }
+        },
+        "sql_and_http": true,
+        "committed_record_preserved": true,
+        "new_write_succeeded": true,
+        "new_record": {
+          "id": 41,
+          "slug": "baseline-65550f839e504e7d9130a9df15e2ccea",
+          "body": "committed-16c25382554c4a9ab9d8305febc315fc"
+        },
+        "preserved_records": [],
+        "replica_records_verified": false,
+        "migration": {
+          "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+          "historical_dump_available": false,
+          "method": "pg_dump -Fc / pg_restore",
+          "articles": 4,
+          "full_article_rows_equal": true,
+          "inactive_user_preserved": true,
+          "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+        }
+      },
+      "failover": {
+        "mode": "failover",
+        "run_id": "c6ff49f4d7544ddeb429ec99af780adb",
+        "leader": "db3",
+        "members": {
+          "db1": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 2,
+            "server_version": 160015
+          },
+          "db2": {
+            "state": "unreachable"
+          },
+          "db3": {
+            "role": "primary",
+            "state": "running",
+            "timeline": 3,
+            "server_version": 160015
+          }
+        },
+        "sql_and_http": true,
+        "committed_record_preserved": true,
+        "new_write_succeeded": true,
+        "new_record": {
+          "id": 71,
+          "slug": "failover-12b68079ccf242ec8db3e63a889236e6",
+          "body": "committed-d2468cebca1246d2bb1d91b20cbe3259"
+        },
+        "preserved_records": [
+          {
+            "id": 41,
+            "slug": "baseline-65550f839e504e7d9130a9df15e2ccea",
+            "body": "committed-16c25382554c4a9ab9d8305febc315fc"
+          }
+        ],
+        "replica_records_verified": false,
+        "migration": {
+          "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+          "historical_dump_available": false,
+          "method": "pg_dump -Fc / pg_restore",
+          "articles": 4,
+          "full_article_rows_equal": true,
+          "inactive_user_preserved": true,
+          "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+        },
+        "stopped_node": "db2",
+        "nova_shutdown_confirmed": true
+      },
+      "recovery": {
+        "mode": "recovered",
+        "run_id": "c6ff49f4d7544ddeb429ec99af780adb",
+        "leader": "db3",
+        "members": {
+          "db1": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 3,
+            "server_version": 160015
+          },
+          "db2": {
+            "role": "replica",
+            "state": "running",
+            "timeline": 3,
+            "server_version": 160015
+          },
+          "db3": {
+            "role": "primary",
+            "state": "running",
+            "timeline": 3,
+            "server_version": 160015
+          }
+        },
+        "sql_and_http": true,
+        "committed_record_preserved": true,
+        "new_write_succeeded": true,
+        "new_record": {
+          "id": 72,
+          "slug": "recovered-acab45b6d4ad4c4e8e0d58c17f04d17e",
+          "body": "committed-f22a827389fd4b7e89a082338c3e50c5"
+        },
+        "preserved_records": [
+          {
+            "id": 41,
+            "slug": "baseline-65550f839e504e7d9130a9df15e2ccea",
+            "body": "committed-16c25382554c4a9ab9d8305febc315fc"
+          },
+          {
+            "id": 71,
+            "slug": "failover-12b68079ccf242ec8db3e63a889236e6",
+            "body": "committed-d2468cebca1246d2bb1d91b20cbe3259"
+          }
+        ],
+        "replica_records_verified": true,
+        "migration": {
+          "source": "reconstructed_DZ04_seed_lessons_on_standalone_PostgreSQL16",
+          "historical_dump_available": false,
+          "method": "pg_dump -Fc / pg_restore",
+          "articles": 4,
+          "full_article_rows_equal": true,
+          "inactive_user_preserved": true,
+          "dump_sha256": "92434a0d7001c099d4f22eb9b41d0234a646c8da7a7582b3c2eea7361563fc17"
+        }
+      }
+    }
+  ],
+  "region": "ru-9",
+  "availability_zone": "ru-9a"
+}

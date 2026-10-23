@@ -1,0 +1,57 @@
+{
+  "scope": "owned_Selectel_guest_console_analysis",
+  "root_DHCP_cause_confirmed": false,
+  "nodes": {
+    "app": {
+      "guest_evidence_found": true,
+      "expected_IPv4_present": false,
+      "default_IPv4_route_present": false,
+      "networkd_active": true,
+      "netplan_files": [
+        "50-cloud-init.yaml"
+      ],
+      "interface_configuring": true,
+      "SSH_IPv4_listener": true,
+      "SSH_IPv6_listener": true
+    },
+    "db1": {
+      "guest_evidence_found": true,
+      "expected_IPv4_present": false,
+      "default_IPv4_route_present": false,
+      "networkd_active": true,
+      "netplan_files": [
+        "50-cloud-init.yaml"
+      ],
+      "interface_configuring": true,
+      "SSH_IPv4_listener": true,
+      "SSH_IPv6_listener": true
+    },
+    "db2": {
+      "guest_evidence_found": true,
+      "expected_IPv4_present": false,
+      "default_IPv4_route_present": false,
+      "networkd_active": true,
+      "netplan_files": [
+        "50-cloud-init.yaml"
+      ],
+      "interface_configuring": true,
+      "SSH_IPv4_listener": true,
+      "SSH_IPv6_listener": true
+    },
+    "db3": {
+      "guest_evidence_found": true,
+      "expected_IPv4_present": false,
+      "default_IPv4_route_present": false,
+      "networkd_active": true,
+      "netplan_files": [
+        "50-cloud-init.yaml"
+      ],
+      "interface_configuring": true,
+      "SSH_IPv4_listener": true,
+      "SSH_IPv6_listener": true
+    }
+  },
+  "interpretation": "guest_networkd_is_running_but_expected_IPv4_is_absent;_SSH_is_listening;_DHCP_configuration_or_delivery_not_yet_distinguished",
+  "test_cycle_run_id": "40e3ce313b0c4b8eb0760e4456b67a21",
+  "state_and_API_cleanup_verified": true
+}

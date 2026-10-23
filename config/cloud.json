@@ -1,0 +1,5 @@
+{
+  "provider": "selectel",
+  "terraform_directory": "terraform-selectel",
+  "required_capabilities": ["network_isolation", "hard_anti_affinity", "placement_hints"]
+}

@@ -1,0 +1,20 @@
+{
+  "fixture_fields_exact": true,
+  "fixture_primary_keys": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "published_articles": 6,
+  "verification_articles": 7,
+  "published_verification_articles": 0,
+  "article_sequence_consistent": true,
+  "contenttype_and_permissions_consistent": true,
+  "public_http_checked": true,
+  "public_course_links": 6,
+  "public_test_article_links": 0,
+  "run_id": "c3381df7d7bf4b0fbb330e03dca05514"
+}

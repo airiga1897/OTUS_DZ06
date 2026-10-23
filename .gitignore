@@ -1,0 +1,10 @@
+.local/
+.tools/
+__pycache__/
+*.pyc
+.terraform/
+*.tfstate*
+*.tfplan
+terraform.tfvars*
+!terraform.tfvars.example.json
+*.sqlite3

@@ -1,0 +1,68 @@
+{
+  "success": true,
+  "resource_ids_preserved": true,
+  "added_nodes": [
+    "db4"
+  ],
+  "verification": {
+    "mode": "expanded",
+    "run_id": "06ca7a8c8554455fa3d9b89312ee49a4",
+    "leader": "db2",
+    "members": {
+      "db1": {
+        "role": "replica",
+        "state": "running",
+        "timeline": 1,
+        "server_version": 160015
+      },
+      "db2": {
+        "role": "primary",
+        "state": "running",
+        "timeline": 1,
+        "server_version": 160015
+      },
+      "db3": {
+        "role": "replica",
+        "state": "running",
+        "timeline": 1,
+        "server_version": 160015
+      },
+      "db4": {
+        "role": "replica",
+        "state": "running",
+        "timeline": 1,
+        "server_version": 160015
+      }
+    },
+    "sql_and_http": true,
+    "application_view_write": true,
+    "media_preserved": true,
+    "committed_record_preserved": true,
+    "new_write_succeeded": true,
+    "new_record": {
+      "id": 15,
+      "slug": "expanded-0f8841d803234c7cbde0c6e19effbe9d",
+      "body": "committed-223f1a2d554a422684539405c68fb806"
+    },
+    "preserved_records": [
+      {
+        "id": 7,
+        "slug": "baseline-2aad232383d54960a223757b751b27ad",
+        "body": "committed-687a10a3aa3843708fad574b4d0dc2e2"
+      }
+    ],
+    "replica_records_verified": true,
+    "failover_record_available": false,
+    "replication_capacity": {
+      "senders": 10,
+      "slots": 10
+    },
+    "initial_data": {
+      "status": "loaded",
+      "loaded_now": false,
+      "articles": 13,
+      "fixture_sha256": "d90e30284bba84b0c7c86bd4f563de20d41c0a18fcad0dec1253fb09f4cda5a1",
+      "source": "bundled_DZ04_materials_fixture"
+    }
+  }
+}

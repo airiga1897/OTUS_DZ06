@@ -1,0 +1,17 @@
+---
+- name: Prepare database hosts
+  hosts: database
+  become: true
+  gather_facts: false
+  roles:
+    - common
+    - etcd
+    - patroni
+
+- name: Configure application and routing
+  hosts: frontend
+  become: true
+  gather_facts: false
+  roles:
+    - haproxy
+    - portal

@@ -1,0 +1,8 @@
+{
+  "scope": "local_remote_verifier_regression_checks",
+  "script_tests_passed": 110,
+  "transient_SQL_connection_retried_before_reading_capacity": true,
+  "recovery_without_failover_record_checked": true,
+  "existing_failover_commit_still_required": true,
+  "cloud_acceptance_report": "test-cycle-result.json"
+}

@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "verification_run_id": "4481fcc5827e4249a6577e1cf57d4698",
+  "region": "ru-9",
+  "zone": "ru-9a",
+  "database_nodes": 3,
+  "initial_leader": "db2",
+  "failover_leader": "db3",
+  "recovered_node": "db2",
+  "all_nodes_running_after_recovery": true,
+  "application_read_write_verified": true,
+  "committed_data_and_media_preserved": true,
+  "replica_reads_verified": true,
+  "initial_articles": 6,
+  "development_links_confirmed_by_user": true,
+  "public_test_articles_absent_confirmed_by_user": true,
+  "repeat_deploy_confirmed_by_user": true,
+  "cleanup_state_and_api_verified": true,
+  "local_state_files_absent": true,
+  "credentials_file_present": true,
+  "environment_cleared_reported_by_user": true,
+  "source_reports": [
+    "verification.json",
+    "failover-result.json",
+    "recovery-result.json",
+    "cleanup-result.json",
+    "placement-result.json"
+  ]
+}

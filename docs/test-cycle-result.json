@@ -1,0 +1,35 @@
+{
+  "run_id": "c3381df7d7bf4b0fbb330e03dca05514",
+  "started_utc": "2026-10-22T20:35:02.934330+00:00",
+  "success": true,
+  "stages_completed": true,
+  "state_and_api_cleanup_verified": true,
+  "steps": [
+    "initial_deploy",
+    "control_data_and_media",
+    "repeat_deploy",
+    "add_replica",
+    "repeat_expanded_deploy",
+    "failover_and_recovery",
+    "stages_completed"
+  ],
+  "completed_steps": [
+    "initial_deploy",
+    "control_data_and_media",
+    "repeat_deploy",
+    "add_replica",
+    "repeat_expanded_deploy",
+    "failover_and_recovery"
+  ],
+  "stage": "stages_completed",
+  "existing_ids_preserved": true,
+  "repeat_after_expansion": true,
+  "initial_database_nodes": 3,
+  "expanded_database_nodes": 4,
+  "added_nodes": [
+    "db4"
+  ],
+  "failover_and_recovery_verified": true,
+  "original_data_and_media_preserved": true,
+  "finished_utc": "2026-10-22T20:50:09.866374+00:00"
+}

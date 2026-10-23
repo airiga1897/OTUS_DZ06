@@ -1,0 +1,12 @@
+{
+  "scope": "read_only_public_ru7_image_disk_inspection",
+  "checksum_verified": true,
+  "public_image_checksum": "a5224f2e4fa8656cfaad931dc91ca30d",
+  "network_activation_disabled_in_image": true,
+  "setting_file": "/etc/cloud/cloud.cfg.d/93-dib-cloud-init-disable-datasource-network-activation.cfg",
+  "network_activation_decision_precedes_user_data": true,
+  "DHCP_packet_exchange_inspected": false,
+  "network_workaround_added": false,
+  "resolution": "exclude_ru7_and_select_verified_image_build_with_standard_network_bootstrap",
+  "cloud_resources_created": false
+}

@@ -1,0 +1,13 @@
+{
+  "scope": "real_Selectel_after_IPv4_bootstrap_change",
+  "https_sources_agree": true,
+  "public_ipv4_confirmed": true,
+  "administrative_rules_public_ipv4_32_only": true,
+  "signed_http_probe_confirmed": false,
+  "ssh_port": 22,
+  "ssh_connection_confirmed": false,
+  "guest_IPv4_bootstrap_check_passed": false,
+  "guest_eth0_only_link_local_IPv6": true,
+  "database_public_ips_absent": true,
+  "state_and_api_cleanup_verified": true
+}

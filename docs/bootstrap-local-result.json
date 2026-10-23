@@ -1,0 +1,18 @@
+{
+  "scope": "local_Terraform_mock_and_shell_stubs",
+  "success": true,
+  "ssh_configuration_and_activation_preserved": true,
+  "terraform_validate": true,
+  "terraform_mock_scenarios_passed": 3,
+  "script_tests_passed": 98,
+  "rendered_bootstrap_shell_cases_passed": 10,
+  "DHCP_enabled_with_fixed_port_addresses": true,
+  "custom_Netplan_override_absent": true,
+  "IPv4_prefix_and_default_gateway_checked": true,
+  "IPv4_check_failure_stops_later_commands": true,
+  "daemon_reload_failure_prevents_probe_start": true,
+  "probe_start_failure_returns_nonzero": true,
+  "cloud_access_performed": false,
+  "cloud_SSH_fix_confirmed": false,
+  "published": false
+}

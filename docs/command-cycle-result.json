@@ -1,0 +1,26 @@
+{
+  "commands": [
+    {
+      "action": "deploy",
+      "exit_code": 0
+    },
+    {
+      "action": "verify",
+      "exit_code": 0
+    },
+    {
+      "action": "destroy",
+      "exit_code": 1
+    },
+    {
+      "action": "destroy",
+      "exit_code": 0
+    }
+  ],
+  "success": true,
+  "region": "ru-7",
+  "availability_zone": "ru-7a",
+  "verification_executed": true,
+  "cleanup_verified": true,
+  "destroy_repeated_for_api_audit": true
+}
